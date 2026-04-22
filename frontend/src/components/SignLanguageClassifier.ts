@@ -259,6 +259,58 @@ const GESTURES: GestureDef[] = [
     }
     return 0;
   }},
+  { name: 'Mother', arabic: 'أمي', category: 'word', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Father', arabic: 'أبي', category: 'word', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Family', arabic: 'عائلة', category: 'word', match: (lm, fs) => {
+    if (fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Friend', arabic: 'صديق', category: 'word', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'School', arabic: 'مدرسة', category: 'word', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Book', arabic: 'كتاب', category: 'word', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Teacher', arabic: 'أستاذ', category: 'word', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Pen', arabic: 'قلم', category: 'word', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Happy', arabic: 'سعيد', category: 'word', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Sick', arabic: 'مريض', category: 'word', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Hungry', arabic: 'جوعان', category: 'word', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Thirsty', arabic: 'عطشان', category: 'word', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'I Love You', arabic: 'أحبك', category: 'phrase', match: (lm, fs) => {
+    if (fs.thumb && fs.index && !fs.middle && !fs.ring && fs.pinky) return 0.8;
+    return 0;
+  }},
   { name: 'Thank You', arabic: 'شكراً', category: 'phrase', match: (lm, fs) => {
     if (countExtended(fs) >= 4) {
       const chinTouch = lm[INDEX_TIP].y > 0.6;
