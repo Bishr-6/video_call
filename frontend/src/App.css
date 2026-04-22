@@ -497,13 +497,105 @@ select.input { cursor: pointer; appearance: none; }
   .call-layout { grid-template-columns: 1fr; }
   .video-grid { grid-template-columns: 1fr; }
 }
+/* --- Comprehensive Mobile Responsiveness --- */
 @media (max-width: 768px) {
-  .hero h1 { font-size: 2.2rem; }
-  .hero p { font-size: 1rem; }
-  .nav-links { gap: 4px; }
-  .nav-link { padding: 6px 12px; font-size: 0.8rem; }
-  .features { grid-template-columns: 1fr; }
-  .steps { grid-template-columns: 1fr; }
-  .hero-buttons { flex-direction: column; align-items: center; }
-  .mode-selector { flex-direction: column; align-items: center; }
+  .nav {
+    padding: 10px 16px;
+    flex-direction: column;
+    height: auto;
+  }
+  
+  .nav-links {
+    margin-top: 10px;
+    gap: 12px;
+    font-size: 0.85rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .call-layout {
+    height: auto;
+    padding: 8px;
+    gap: 10px;
+    margin-top: 0;
+  }
+
+  .video-grid-split {
+    grid-template-columns: 1fr !important; /* Stack videos vertically */
+    height: auto;
+    flex: none;
+    gap: 10px;
+  }
+
+  .video-wrapper-full {
+    height: 38vh; /* Optimal height for seeing hands and body */
+    min-height: 280px;
+    border-radius: var(--radius-lg);
+  }
+
+  .call-bottom-panel {
+    grid-template-columns: 1fr; /* Stack chat and controls */
+    height: auto;
+    min-height: auto;
+    gap: 12px;
+  }
+
+  .transcript-panel-bottom {
+    height: 220px; /* Scrollable chat area on mobile */
+    padding: 12px;
+  }
+
+  .call-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    padding: 10px;
+  }
+
+  .btn-icon {
+    width: 48px;
+    height: 48px;
+    font-size: 1.3rem;
+  }
+
+  .btn-primary, .btn-danger {
+    padding: 12px 20px;
+    font-size: 0.95rem;
+  }
+
+  .mode-selector {
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+  }
+
+  .mode-card {
+    width: 100%;
+    padding: 20px;
+  }
+
+  .video-label {
+    font-size: 0.75rem;
+    padding: 6px 10px;
+  }
+
+  /* Help Instructions Modal adjustment */
+  .glass-strong[style*="maxWidth: 700"] {
+    width: 95% !important;
+    padding: 20px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .video-wrapper-full {
+    height: 32vh;
+    min-height: 220px;
+  }
+  .gradient-text {
+    font-size: 1.8rem;
+    text-align: center;
+  }
+  .matching-screen p {
+    font-size: 0.9rem;
+  }
 }
