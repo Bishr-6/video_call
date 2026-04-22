@@ -259,52 +259,586 @@ const GESTURES: GestureDef[] = [
     }
     return 0;
   }},
-  { name: 'Mother', arabic: 'أمي', category: 'word', match: (lm, fs) => {
+  // --- قاموس الأفعال الإماراتي (🇦🇪) ---
+  { name: 'Sleep', arabic: 'ينام', category: 'action', match: (lm, fs) => {
+    // كف بجانب الرأس (تبسيط)
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Eat', arabic: 'يأكل', category: 'action', match: (lm, fs) => {
     if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
     return 0;
   }},
-  { name: 'Father', arabic: 'أبي', category: 'word', match: (lm, fs) => {
-    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+  { name: 'Drink', arabic: 'يشرب', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
     return 0;
   }},
-  { name: 'Family', arabic: 'عائلة', category: 'word', match: (lm, fs) => {
-    if (fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
-    return 0;
-  }},
-  { name: 'Friend', arabic: 'صديق', category: 'word', match: (lm, fs) => {
+  { name: 'Read', arabic: 'يقرأ', category: 'action', match: (lm, fs) => {
     if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.7;
     return 0;
   }},
-  { name: 'School', arabic: 'مدرسة', category: 'word', match: (lm, fs) => {
-    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+  { name: 'Write', arabic: 'يكتب', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
     return 0;
   }},
-  { name: 'Book', arabic: 'كتاب', category: 'word', match: (lm, fs) => {
+  { name: 'Love', arabic: 'يحب', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && !fs.middle && !fs.ring && fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Pray', arabic: 'يصلي', category: 'action', match: (lm, fs) => {
     if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
     return 0;
   }},
-  { name: 'Teacher', arabic: 'أستاذ', category: 'word', match: (lm, fs) => {
-    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+  { name: 'Help', arabic: 'يساعد', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
     return 0;
   }},
-  { name: 'Pen', arabic: 'قلم', category: 'word', match: (lm, fs) => {
-    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
-    return 0;
-  }},
-  { name: 'Happy', arabic: 'سعيد', category: 'word', match: (lm, fs) => {
+  { name: 'Open', arabic: 'يفتح', category: 'action', match: (lm, fs) => {
     if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
     return 0;
   }},
-  { name: 'Sick', arabic: 'مريض', category: 'word', match: (lm, fs) => {
+  { name: 'Close', arabic: 'يغلق', category: 'action', match: (lm, fs) => {
     if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
     return 0;
   }},
-  { name: 'Hungry', arabic: 'جوعان', category: 'word', match: (lm, fs) => {
+  { name: 'Walk', arabic: 'يمشي', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Run', arabic: 'يجري', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Think', arabic: 'يفكر', category: 'action', match: (lm, fs) => {
     if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
     return 0;
   }},
-  { name: 'Thirsty', arabic: 'عطشان', category: 'word', match: (lm, fs) => {
+  { name: 'Hear', arabic: 'يسمع', category: 'action', match: (lm, fs) => {
     if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'See', arabic: 'ينظر', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Talk', arabic: 'يتحدث', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Work', arabic: 'يعمل', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Win', arabic: 'يفوز', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Lose', arabic: 'يخسر', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Buy', arabic: 'يشتري', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Sell', arabic: 'يبيع', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Draw', arabic: 'يرسم', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Play', arabic: 'يلعب', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && !fs.index && !fs.middle && !fs.ring && fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Stop', arabic: 'يتوقف', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Call', arabic: 'ينادي', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Travel', arabic: 'يسافر', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Laugh', arabic: 'يضحك', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Cry', arabic: 'يبكي', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Wash', arabic: 'يغسل', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Cook', arabic: 'يطبخ', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Smell', arabic: 'يشم', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Taste', arabic: 'يتذوق', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Angry', arabic: 'يغضب', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Warn', arabic: 'يحذر', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Steal', arabic: 'يسرق', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Swim', arabic: 'يسبح', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Visit', arabic: 'يزور', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Wake Up', arabic: 'يستيقظ', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Dance', arabic: 'يرقص', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Forgive', arabic: 'يسامح', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Give', arabic: 'يعطي', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Enter', arabic: 'يدخل', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Exit', arabic: 'يخرج', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Fly', arabic: 'يطير', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Drive', arabic: 'يقود', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Ask', arabic: 'يطلب', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Open Window', arabic: 'يفتح', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Sit', arabic: 'يجلس', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Stand', arabic: 'يقف', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Wait', arabic: 'ينتظر', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Start', arabic: 'يبدأ', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'End', arabic: 'ينتهي', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Help Others', arabic: 'يساعد', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Fight', arabic: 'يحارب', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Search', arabic: 'يبحث', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Find', arabic: 'يجد', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Forget', arabic: 'ينسى', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Remember', arabic: 'يتذكر', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Believe', arabic: 'يؤمن', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Doubt', arabic: 'يشك', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Hope', arabic: 'يتمنى', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Dream', arabic: 'يحلم', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Succeed', arabic: 'ينجح', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Fail', arabic: 'يفشل', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Change', arabic: 'يغير', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Build', arabic: 'يبني', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Destroy', arabic: 'يدمر', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Hide', arabic: 'يختبئ', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Show', arabic: 'يظهر', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Promise', arabic: 'يعد', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Trust', arabic: 'يثق', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Respect', arabic: 'يحترم', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Ignore', arabic: 'يتجاهل', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Accept', arabic: 'يقبل', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Refuse', arabic: 'يرفض', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Choose', arabic: 'يختار', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Decide', arabic: 'يقرر', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Plan', arabic: 'يخطط', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Organize', arabic: 'يرتب', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Lead', arabic: 'يقود', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Follow', arabic: 'يتبع', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Wait For', arabic: 'ينتظر', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Arrive', arabic: 'يصل', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Leave', arabic: 'يغادر', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Wudu', arabic: 'يتوضأ', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Pray', arabic: 'يصلي', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Plant', arabic: 'يزرع', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Water', arabic: 'يسقي', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Sweep', arabic: 'يمسح', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Tayamum', arabic: 'يتيمم', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Stay Up', arabic: 'يسهر', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Silence', arabic: 'يسكت', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Sign', arabic: 'يوقع', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Angry', arabic: 'يغضب', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Worry', arabic: 'يتضايق', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Smoke', arabic: 'يدخن', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Barbecue', arabic: 'يشوي', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Lift', arabic: 'يرفع', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Cheat', arabic: 'يخدع', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Delay', arabic: 'يؤجل', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Demolish', arabic: 'يهدم', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Copy', arabic: 'ينسخ', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Dig', arabic: 'يحفر', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Despise', arabic: 'يحتقر', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Vomit', arabic: 'يستفرغ', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Dive', arabic: 'يغوص', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Refuse Obedience', arabic: 'يعصي', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Deteriorate', arabic: 'يتدهور', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Meditate', arabic: 'يتأمل', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Confirm', arabic: 'يؤكد', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Break', arabic: 'يكسر', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Burn', arabic: 'يحرق', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Celebrate', arabic: 'يحتفل', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Distinguish', arabic: 'يتميز', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Carry', arabic: 'يحمل', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Comb', arabic: 'يمشط', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Compliment', arabic: 'يجامل', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Return', arabic: 'يرجع', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Hit', arabic: 'يضرب', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Hunt', arabic: 'يصيد', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Tell', arabic: 'يخبر', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Go', arabic: 'يذهب', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Initiate', arabic: 'يبادر', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Judge', arabic: 'يحكم', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Knead', arabic: 'يعجن', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'I3tikaf', arabic: 'يعتكف', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Bind', arabic: 'يربط', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Jump', arabic: 'يقفز', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Hate', arabic: 'يكره', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Harvest', arabic: 'يحصد', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Invite', arabic: 'يدعو', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Earn', arabic: 'يكسب', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Test', arabic: 'يجرب', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Devote', arabic: 'يخشع', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Volunteer', arabic: 'يتطوع', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Evolve', arabic: 'يتطور', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Examine', arabic: 'يفحص', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Flirt', arabic: 'يغازل', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Discover', arabic: 'يكتشف', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Fold', arabic: 'يطوي', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Fill', arabic: 'يملأ', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Interpret', arabic: 'يفسر', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Breastfeed', arabic: 'يرضع', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Grow', arabic: 'ينمو', category: 'action', match: (lm, fs) => {
+    if (fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Blame', arabic: 'يلوم', category: 'action', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.8;
     return 0;
   }},
   { name: 'I Love You', arabic: 'أحبك', category: 'phrase', match: (lm, fs) => {
