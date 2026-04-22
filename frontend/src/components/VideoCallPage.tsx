@@ -183,6 +183,12 @@ export default function VideoCallPage() {
 
   const joinRoom = (id: string) => { setRoomId(id); socketRef.current?.emit('room:join', { roomId: id }) }
 
+  useEffect(() => {
+    if (status === 'in-room' && localVideoRef.current && localStreamRef.current) {
+      localVideoRef.current.srcObject = localStreamRef.current
+    }
+  }, [status])
+
   useEffect(() => { connectSocket(); return () => { socketRef.current?.disconnect() } }, [])
 
   return (
