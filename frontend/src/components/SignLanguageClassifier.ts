@@ -311,6 +311,10 @@ const GESTURES: GestureDef[] = [
     if (fs.thumb && fs.index && !fs.middle && !fs.ring && fs.pinky) return 0.8;
     return 0;
   }},
+  { name: 'Space', arabic: ' (مسافة) ', category: 'command', match: (lm, fs) => {
+    if (fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.8;
+    return 0;
+  }},
   { name: 'Thank You', arabic: 'شكراً', category: 'phrase', match: (lm, fs) => {
     if (countExtended(fs) >= 4) {
       const chinTouch = lm[INDEX_TIP].y > 0.6;
