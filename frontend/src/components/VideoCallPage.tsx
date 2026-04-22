@@ -141,6 +141,11 @@ export default function VideoCallPage() {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
+          {
+            urls: 'turn:global.relay.metered.ca:443',
+            username: '3c08dbba57057d6e4f42b5f9',
+            credential: 'BxX0oE/MCI8Qh1cn'
+          }
         ],
       })
       peerRef.current = pc
