@@ -49,8 +49,15 @@ app.get('/api/stats', (_req, res) => {
 // ============================================
 // Socket.IO
 // ============================================
+const rawOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000';
+const corsOrigin = rawOrigin.endsWith('/') ? rawOrigin.slice(0, -1) : rawOrigin;
+
 const io = new Server(httpServer, {
-  cors: { origin: CORS_ORIGIN, methods: ['GET', 'POST'], credentials: true },
+  cors: { 
+    origin: [corsOrigin, corsOrigin + '/'], 
+    methods: ['GET', 'POST'], 
+    credentials: true 
+  },
   pingTimeout: 60000,
   pingInterval: 25000,
 });
