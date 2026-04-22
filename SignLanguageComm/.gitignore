@@ -1,0 +1,16 @@
+.DS_Store
+node_modules/
+dist/
+build/
+*.log
+*.swp
+*.swo
+~*
+.env
+.env.local
+.idea/
+.vscode/
+.vs/
+*.code-workspace
+.DS_Store/
+*.sublime-workspace
