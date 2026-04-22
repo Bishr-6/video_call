@@ -156,11 +156,27 @@ export default function VideoCallPage() {
     detect()
   }
 
+  const speakText = (text: string) => {
+    if (!('speechSynthesis' in window)) return
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.lang = 'ar-SA'
+    utterance.rate = 0.9 // Slow down slightly for clarity
+    utterance.pitch = 1.0
+    
+    // Attempt to find a natural Arabic voice if available
+    const voices = window.speechSynthesis.getVoices()
+    const arVoice = voices.find(v => v.lang.includes('ar'))
+    if (arVoice) utterance.voice = arVoice
+
+    window.speechSynthesis.speak(utterance)
+  }
+
   const finalizeSentence = () => {
     const text = sentenceBufferRef.current.trim()
     if (text) {
       setMessages(prev => [...prev, { senderId: socketRef.current!.id, senderName: 'أنت', text, type: 'sign', timestamp: Date.now() }])
       socketRef.current?.emit('transcription:send', { roomId, text, type: 'sign' })
+      speakText(text) // Speak the sentence for the hearing person
     }
     sentenceBufferRef.current = ''; setSentenceDisplay(''); lastActivityRef.current = Date.now()
   }
