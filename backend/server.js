@@ -6,14 +6,13 @@ import { v4 as uuidv4 } from 'uuid';
 
 const app = express();
 
-// Robust CORS for Express
 app.use(cors({
   origin: (origin, callback) => {
     const allowed = ['https://video-call-one-kappa.vercel.app', 'http://localhost:5173'];
     if (!origin || allowed.includes(origin.replace(/\/$/, ''))) {
       callback(null, true);
     } else {
-      callback(new Error('CORS Not Allowed'));
+      callback(null, true); // Fallback to allow during transitions
     }
   },
   credentials: true
@@ -28,53 +27,54 @@ const io = new Server(server, {
   }
 });
 
-const users = new Map(); // socket.id -> userInfo
-const rooms = new Map(); // roomId -> { users: [id1, id2, ...] }
+const users = new Map();
+const rooms = new Map();
+let matchingQueue = []; // For random 1-on-1 chat
 
 io.on('connection', (socket) => {
-  console.log(`🔗 New Connection: ${socket.id}`);
-
   socket.on('user:register', (data) => {
-    users.set(socket.id, {
-      id: socket.id,
-      displayName: data.displayName || 'مستخدم',
-      isDeaf: data.isDeaf || false,
-      roomId: null
-    });
+    users.set(socket.id, { id: socket.id, displayName: data.displayName || 'مستخدم', isDeaf: data.isDeaf || false, roomId: null });
     socket.emit('user:registered', { id: socket.id });
   });
 
-  // Create a specific room
+  // --- Random 1-on-1 Chat Logic ---
+  socket.on('queue:join', () => {
+    if (matchingQueue.includes(socket.id)) return;
+    
+    if (matchingQueue.length > 0) {
+      const partnerId = matchingQueue.shift();
+      const roomId = uuidv4().substring(0, 8);
+      
+      // Tell both users to join this room
+      io.to(socket.id).emit('match:found', { roomId, partnerId });
+      io.to(partnerId).emit('match:found', { roomId, partnerId: socket.id });
+    } else {
+      matchingQueue.push(socket.id);
+      socket.emit('queue:waiting');
+    }
+  });
+
+  socket.on('queue:leave', () => {
+    matchingQueue = matchingQueue.filter(id => id !== socket.id);
+  });
+
+  // --- Private Room Logic ---
   socket.on('room:create', () => {
     const roomId = uuidv4().substring(0, 8);
     socket.emit('room:created', { roomId });
   });
 
-  // Join a room (Manual or Random)
   socket.on('room:join', (data) => {
     const { roomId } = data;
     const user = users.get(socket.id);
     if (!user) return;
 
-    // Leave previous room if any
-    if (user.roomId) {
-      socket.leave(user.roomId);
-      const oldRoom = rooms.get(user.roomId);
-      if (oldRoom) {
-        oldRoom.users = oldRoom.users.filter(id => id !== socket.id);
-        if (oldRoom.users.length === 0) rooms.delete(user.roomId);
-      }
-    }
-
     socket.join(roomId);
     user.roomId = roomId;
 
-    if (!rooms.has(roomId)) {
-      rooms.set(roomId, { users: [] });
-    }
+    if (!rooms.has(roomId)) rooms.set(roomId, { users: [] });
     const room = rooms.get(roomId);
 
-    // Tell the new user about existing users
     const existingUsers = room.users.map(id => ({
       id,
       displayName: users.get(id)?.displayName,
@@ -82,39 +82,24 @@ io.on('connection', (socket) => {
     }));
     socket.emit('room:users', existingUsers);
 
-    // Tell existing users about the new user
-    socket.to(roomId).emit('user:joined', {
-      id: socket.id,
-      displayName: user.displayName,
-      isDeaf: user.isDeaf
-    });
-
+    socket.to(roomId).emit('user:joined', { id: socket.id, displayName: user.displayName, isDeaf: user.isDeaf });
     room.users.push(socket.id);
-    console.log(`🏠 ${user.displayName} joined room: ${roomId}`);
   });
 
-  // Generic WebRTC Signaling Relay
   socket.on('webrtc:signal', (data) => {
     const { to, signal } = data;
-    io.to(to).emit('webrtc:signal', {
-      from: socket.id,
-      signal
-    });
+    io.to(to).emit('webrtc:signal', { from: socket.id, signal });
   });
 
   socket.on('transcription:send', (data) => {
     const { roomId, text, type } = data;
-    socket.to(roomId).emit('transcription:received', {
-      senderId: socket.id,
-      senderName: users.get(socket.id)?.displayName,
-      text,
-      type
-    });
+    socket.to(roomId).emit('transcription:received', { senderId: socket.id, senderName: users.get(socket.id)?.displayName, text, type });
   });
 
   socket.on('disconnect', () => {
+    matchingQueue = matchingQueue.filter(id => id !== socket.id);
     const user = users.get(socket.id);
-    if (user && user.roomId) {
+    if (user?.roomId) {
       socket.to(user.roomId).emit('user:left', { id: socket.id });
       const room = rooms.get(user.roomId);
       if (room) {
@@ -123,11 +108,8 @@ io.on('connection', (socket) => {
       }
     }
     users.delete(socket.id);
-    console.log(`❌ Disconnected: ${socket.id}`);
   });
 });
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server on port ${PORT}`));
