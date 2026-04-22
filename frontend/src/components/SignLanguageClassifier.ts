@@ -841,6 +841,92 @@ const GESTURES: GestureDef[] = [
     if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.8;
     return 0;
   }},
+
+  // --- منظومة الأرقام الإماراتية (🇦🇪) ---
+  { name: 'Zero', arabic: '٠', category: 'number', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.9;
+    return 0;
+  }},
+  { name: 'One', arabic: '١', category: 'number', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.9;
+    return 0;
+  }},
+  { name: 'Two', arabic: '٢', category: 'number', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.9;
+    return 0;
+  }},
+  { name: 'Three', arabic: '٣', category: 'number', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && fs.ring && !fs.pinky) return 0.9;
+    return 0;
+  }},
+  { name: 'Four', arabic: '٤', category: 'number', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.9;
+    return 0;
+  }},
+  { name: 'Five', arabic: '٥', category: 'number', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.9;
+    return 0;
+  }},
+  { name: 'Six', arabic: '٦', category: 'number', match: (lm, fs) => {
+    if (!fs.thumb && !fs.index && !fs.middle && !fs.ring && fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Seven', arabic: '٧', category: 'number', match: (lm, fs) => {
+    if (fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Eight', arabic: '٨', category: 'number', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Nine', arabic: '٩', category: 'number', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && !fs.pinky) return 0.8;
+    return 0;
+  }},
+  { name: 'Ten', arabic: '١٠', category: 'number', match: (lm, fs) => {
+    if (fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Twenty', arabic: '٢٠', category: 'number', match: (lm, fs) => {
+    if (fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Thirty', arabic: '٣٠', category: 'number', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Forty', arabic: '٤٠', category: 'number', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && !fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'Fifty', arabic: '٥٠', category: 'number', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.7;
+    return 0;
+  }},
+  { name: 'One Hundred', arabic: '١٠٠', category: 'number', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Two Hundred', arabic: '٢٠٠', category: 'number', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && fs.middle && !fs.ring && !fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Five Hundred', arabic: '٥٠٠', category: 'number', match: (lm, fs) => {
+    if (fs.thumb && fs.index && fs.middle && fs.ring && fs.pinky) return 0.6;
+    return 0;
+  }},
+  { name: 'Thousand', arabic: '١٠٠٠', category: 'number', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.5;
+    return 0;
+  }},
+  { name: 'Million', arabic: 'مليون', category: 'number', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.5;
+    return 0;
+  }},
+  { name: 'Billion', arabic: 'مليار', category: 'number', match: (lm, fs) => {
+    if (!fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) return 0.5;
+    return 0;
+  }},
   { name: 'I Love You', arabic: 'أحبك', category: 'phrase', match: (lm, fs) => {
     if (fs.thumb && fs.index && !fs.middle && !fs.ring && fs.pinky) return 0.8;
     return 0;
