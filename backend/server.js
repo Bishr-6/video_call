@@ -1,276 +1,120 @@
-import express from 'express';
-import { createServer } from 'http';
-import { Server } from 'socket.io';
-import cors from 'cors';
-import { v4 as uuidv4 } from 'uuid';
-import dotenv from 'dotenv';
-
-dotenv.config();
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
+const { v4: uuidv4 } = require('uuid');
 
 const app = express();
-const httpServer = createServer(app);
-const PORT = process.env.PORT || 5000;
-const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:3000';
+app.use(cors());
 
-// ============================================
-// Middleware
-// ============================================
-app.use(cors({ origin: CORS_ORIGIN, credentials: true }));
-app.use(express.json());
-
-// ============================================
-// In-memory data stores
-// ============================================
-const users = new Map();          // socketId -> { userId, displayName, status }
-const rooms = new Map();          // roomId -> { users: [socketId, socketId], createdAt }
-const matchingQueue = [];         // Array of socketIds waiting to be matched
-
-// ============================================
-// REST Endpoints
-// ============================================
-app.get('/health', (_req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    activeUsers: users.size,
-    activeRooms: rooms.size,
-    queueLength: matchingQueue.length,
-  });
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
 });
 
-app.get('/api/stats', (_req, res) => {
-  res.json({
-    activeUsers: users.size,
-    activeRooms: rooms.size,
-    queueLength: matchingQueue.length,
-  });
-});
-
-// ============================================
-// Socket.IO
-// ============================================
-const rawOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000';
-const corsOrigin = rawOrigin.endsWith('/') ? rawOrigin.slice(0, -1) : rawOrigin;
-
-const io = new Server(httpServer, {
-  cors: { 
-    origin: [corsOrigin, corsOrigin + '/'], 
-    methods: ['GET', 'POST'], 
-    credentials: true 
-  },
-  pingTimeout: 60000,
-  pingInterval: 25000,
-});
+const users = new Map(); // socket.id -> userInfo
+const rooms = new Map(); // roomId -> { users: [id1, id2, ...] }
 
 io.on('connection', (socket) => {
-  console.log(`✅ User connected: ${socket.id}`);
+  console.log(`🔗 New Connection: ${socket.id}`);
 
-  // ------------------------------------------
-  // User Registration
-  // ------------------------------------------
   socket.on('user:register', (data) => {
-    const userId = uuidv4();
-    const user = {
-      userId,
-      socketId: socket.id,
-      displayName: data.displayName || `User-${userId.slice(0, 4)}`,
+    users.set(socket.id, {
+      id: socket.id,
+      displayName: data.displayName || 'مستخدم',
       isDeaf: data.isDeaf || false,
-      status: 'online',
-    };
-    users.set(socket.id, user);
-    socket.emit('user:registered', { userId, displayName: user.displayName });
-    console.log(`👤 Registered: ${user.displayName} (deaf: ${user.isDeaf})`);
+      roomId: null
+    });
+    socket.emit('user:registered', { id: socket.id });
   });
 
-  // ------------------------------------------
-  // Omegle-Style Matching Queue
-  // ------------------------------------------
-  socket.on('queue:join', () => {
+  // Create a specific room
+  socket.on('room:create', () => {
+    const roomId = uuidv4().substring(0, 8);
+    socket.emit('room:created', { roomId });
+  });
+
+  // Join a room (Manual or Random)
+  socket.on('room:join', (data) => {
+    const { roomId } = data;
     const user = users.get(socket.id);
-    if (!user) {
-      socket.emit('error:msg', { message: 'Please register first' });
-      return;
-    }
+    if (!user) return;
 
-    // Don't add if already in queue
-    if (matchingQueue.includes(socket.id)) {
-      socket.emit('queue:already');
-      return;
-    }
-
-    // Remove from any existing room first
-    leaveCurrentRoom(socket);
-
-    // Try to match with someone in the queue
-    if (matchingQueue.length > 0) {
-      const partnerSocketId = matchingQueue.shift();
-      const partnerSocket = io.sockets.sockets.get(partnerSocketId);
-
-      if (!partnerSocket || !users.has(partnerSocketId)) {
-        // Partner disconnected, try next or add to queue
-        matchingQueue.push(socket.id);
-        socket.emit('queue:waiting', { position: matchingQueue.length });
-        return;
+    // Leave previous room if any
+    if (user.roomId) {
+      socket.leave(user.roomId);
+      const oldRoom = rooms.get(user.roomId);
+      if (oldRoom) {
+        oldRoom.users = oldRoom.users.filter(id => id !== socket.id);
+        if (oldRoom.users.length === 0) rooms.delete(user.roomId);
       }
-
-      // Create a room for both users
-      const roomId = uuidv4();
-      const room = {
-        roomId,
-        users: [socket.id, partnerSocketId],
-        createdAt: Date.now(),
-      };
-      rooms.set(roomId, room);
-
-      // Join socket.io room
-      socket.join(roomId);
-      partnerSocket.join(roomId);
-
-      // Update user statuses
-      users.get(socket.id).status = 'in-call';
-      users.get(partnerSocketId).status = 'in-call';
-
-      const partnerUser = users.get(partnerSocketId);
-      const currentUser = users.get(socket.id);
-
-      // Notify both users
-      socket.emit('match:found', {
-        roomId,
-        partnerId: partnerSocketId,
-        partnerName: partnerUser.displayName,
-        partnerIsDeaf: partnerUser.isDeaf,
-        isInitiator: true,
-      });
-
-      partnerSocket.emit('match:found', {
-        roomId,
-        partnerId: socket.id,
-        partnerName: currentUser.displayName,
-        partnerIsDeaf: currentUser.isDeaf,
-        isInitiator: false,
-      });
-
-      console.log(`🤝 Matched: ${currentUser.displayName} <-> ${partnerUser.displayName} in room ${roomId}`);
-    } else {
-      // No one to match with, add to queue
-      matchingQueue.push(socket.id);
-      socket.emit('queue:waiting', { position: matchingQueue.length });
-      console.log(`⏳ ${user.displayName} added to queue (position: ${matchingQueue.length})`);
     }
-  });
 
-  socket.on('queue:leave', () => {
-    const idx = matchingQueue.indexOf(socket.id);
-    if (idx !== -1) {
-      matchingQueue.splice(idx, 1);
-      socket.emit('queue:left');
-      console.log(`🚪 User left queue: ${socket.id}`);
+    socket.join(roomId);
+    user.roomId = roomId;
+
+    if (!rooms.has(roomId)) {
+      rooms.set(roomId, { users: [] });
     }
+    const room = rooms.get(roomId);
+
+    // Tell the new user about existing users
+    const existingUsers = room.users.map(id => ({
+      id,
+      displayName: users.get(id)?.displayName,
+      isDeaf: users.get(id)?.isDeaf
+    }));
+    socket.emit('room:users', existingUsers);
+
+    // Tell existing users about the new user
+    socket.to(roomId).emit('user:joined', {
+      id: socket.id,
+      displayName: user.displayName,
+      isDeaf: user.isDeaf
+    });
+
+    room.users.push(socket.id);
+    console.log(`🏠 ${user.displayName} joined room: ${roomId}`);
   });
 
-  // ------------------------------------------
-  // WebRTC Signaling
-  // ------------------------------------------
-  socket.on('webrtc:offer', ({ roomId, offer }) => {
-    socket.to(roomId).emit('webrtc:offer', { offer, from: socket.id });
-  });
-
-  socket.on('webrtc:answer', ({ roomId, answer }) => {
-    socket.to(roomId).emit('webrtc:answer', { answer, from: socket.id });
-  });
-
-  socket.on('webrtc:ice-candidate', ({ roomId, candidate }) => {
-    socket.to(roomId).emit('webrtc:ice-candidate', { candidate, from: socket.id });
-  });
-
-  // ------------------------------------------
-  // Transcription / Translation relay
-  // ------------------------------------------
-  socket.on('transcription:send', ({ roomId, text, language, type }) => {
-    socket.to(roomId).emit('transcription:received', {
-      text,
-      language,
-      type, // 'sign' | 'speech' | 'text'
+  // Generic WebRTC Signaling Relay
+  socket.on('webrtc:signal', (data) => {
+    const { to, signal } = data;
+    io.to(to).emit('webrtc:signal', {
       from: socket.id,
-      timestamp: Date.now(),
+      signal
     });
   });
 
-  // ------------------------------------------
-  // Room / Call Management
-  // ------------------------------------------
-  socket.on('room:leave', () => {
-    leaveCurrentRoom(socket);
+  socket.on('transcription:send', (data) => {
+    const { roomId, text, type } = data;
+    socket.to(roomId).emit('transcription:received', {
+      senderId: socket.id,
+      senderName: users.get(socket.id)?.displayName,
+      text,
+      type
+    });
   });
 
-  socket.on('room:next', () => {
-    // Leave current room and rejoin queue (like Omegle "Next")
-    leaveCurrentRoom(socket);
-    // Re-join the queue
-    socket.emit('queue:rejoin');
-  });
-
-  // ------------------------------------------
-  // Disconnect
-  // ------------------------------------------
   socket.on('disconnect', () => {
-    console.log(`❌ User disconnected: ${socket.id}`);
-    leaveCurrentRoom(socket);
-
-    // Remove from queue
-    const idx = matchingQueue.indexOf(socket.id);
-    if (idx !== -1) matchingQueue.splice(idx, 1);
-
-    // Remove user
+    const user = users.get(socket.id);
+    if (user && user.roomId) {
+      socket.to(user.roomId).emit('user:left', { id: socket.id });
+      const room = rooms.get(user.roomId);
+      if (room) {
+        room.users = room.users.filter(id => id !== socket.id);
+        if (room.users.length === 0) rooms.delete(user.roomId);
+      }
+    }
     users.delete(socket.id);
+    console.log(`❌ Disconnected: ${socket.id}`);
   });
 });
 
-// ============================================
-// Helper Functions
-// ============================================
-function leaveCurrentRoom(socket) {
-  for (const [roomId, room] of rooms.entries()) {
-    if (room.users.includes(socket.id)) {
-      // Notify partner
-      const partnerId = room.users.find((id) => id !== socket.id);
-      if (partnerId) {
-        const partnerSocket = io.sockets.sockets.get(partnerId);
-        if (partnerSocket) {
-          partnerSocket.emit('partner:disconnected');
-          // Update partner status
-          const partnerUser = users.get(partnerId);
-          if (partnerUser) partnerUser.status = 'online';
-        }
-      }
-
-      // Leave socket.io room
-      socket.leave(roomId);
-
-      // Delete room
-      rooms.delete(roomId);
-
-      // Update status
-      const user = users.get(socket.id);
-      if (user) user.status = 'online';
-
-      console.log(`🚪 Room ${roomId} closed`);
-      break;
-    }
-  }
-}
-
-// ============================================
-// Start Server
-// ============================================
-httpServer.listen(PORT, () => {
-  console.log(`
-╔══════════════════════════════════════════════╗
-║  🤝 Smart Sign Language Communication       ║
-║  ──────────────────────────────────────────  ║
-║  Server running on port ${PORT}                ║
-║  CORS: ${CORS_ORIGIN}              ║
-║  Health: http://localhost:${PORT}/health        ║
-╚══════════════════════════════════════════════╝
-  `);
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
