@@ -77,17 +77,24 @@ export default function VideoCallPage() {
       setStatus('matched')
       showToast(`تم الاتصال مع ${data.partnerName}!`, 'success')
 
-      // Start WebRTC
-      await setupWebRTC(socket, data.isInitiator)
+      // 1. Create PeerConnection IMMEDIATELY to avoid missing signals
+      const pc = createPeerConnection(socket)
+      peerRef.current = pc
+
+      // 2. Start Camera and Add Tracks
+      await setupMedia(pc, data.isInitiator)
       setStatus('in-call')
     })
 
     socket.on('webrtc:offer', async ({ offer }) => {
       if (!peerRef.current) return
-      await peerRef.current.setRemoteDescription(new RTCSessionDescription(offer))
-      const answer = await peerRef.current.createAnswer()
-      await peerRef.current.setLocalDescription(answer)
-      socket.emit('webrtc:answer', { roomId: roomIdRef.current, answer })
+      console.log('Received WebRTC Offer')
+      try {
+        await peerRef.current.setRemoteDescription(new RTCSessionDescription(offer))
+        const answer = await peerRef.current.createAnswer()
+        await peerRef.current.setLocalDescription(answer)
+        socketRef.current?.emit('webrtc:answer', { roomId: roomIdRef.current, answer })
+      } catch (err) { console.error('Offer error:', err) }
     })
 
     socket.on('webrtc:answer', async ({ answer }) => {
@@ -128,52 +135,70 @@ export default function VideoCallPage() {
     socketRef.current = socket
   }, [isDeaf])
 
-  const setupWebRTC = async (socket: Socket, isInitiator: boolean) => {
+  const createPeerConnection = (socket: Socket) => {
+    const pc = new RTCPeerConnection({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        {
+          urls: 'turn:global.relay.metered.ca:443',
+          username: '3c08dbba57057d6e4f42b5f9',
+          credential: 'BxX0oE/MCI8Qh1cn'
+        }
+      ],
+    })
+
+    pc.ontrack = (e) => {
+      console.log('Received Remote Track')
+      if (remoteVideoRef.current && e.streams[0]) {
+        remoteVideoRef.current.srcObject = e.streams[0]
+        remoteVideoRef.current.play().catch(err => console.error('Video play error:', err))
+      }
+    }
+
+    pc.onicecandidate = (e) => {
+      if (e.candidate) {
+        socket.emit('webrtc:ice-candidate', { roomId: roomIdRef.current, candidate: e.candidate })
+      }
+    }
+
+    pc.onconnectionstatechange = () => {
+      console.log('Connection State:', pc.connectionState)
+      if (pc.connectionState === 'connected') showToast('تم الاتصال المرئي!', 'success')
+    }
+
+    return pc
+  }
+
+  const setupMedia = async (pc: RTCPeerConnection, isInitiator: boolean) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: true,
       })
       localStreamRef.current = stream
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream
-
-      const pc = new RTCPeerConnection({
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          {
-            urls: 'turn:global.relay.metered.ca:443',
-            username: '3c08dbba57057d6e4f42b5f9',
-            credential: 'BxX0oE/MCI8Qh1cn'
-          }
-        ],
-      })
-      peerRef.current = pc
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream
+        localVideoRef.current.play().catch(() => {})
+      }
 
       stream.getTracks().forEach(t => pc.addTrack(t, stream))
 
-      pc.ontrack = (e) => {
-        if (remoteVideoRef.current && e.streams[0]) {
-          remoteVideoRef.current.srcObject = e.streams[0]
-        }
-      }
-
-      pc.onicecandidate = (e) => {
-        if (e.candidate) {
-          socket.emit('webrtc:ice-candidate', { roomId: roomIdRef.current, candidate: e.candidate })
-        }
-      }
-
       if (isInitiator) {
-        const offer = await pc.createOffer()
-        await pc.setLocalDescription(offer)
-        socket.emit('webrtc:offer', { roomId: roomIdRef.current, offer })
+        // Wait a bit for the other side to be ready
+        setTimeout(async () => {
+          try {
+            const offer = await pc.createOffer()
+            await pc.setLocalDescription(offer)
+            socketRef.current?.emit('webrtc:offer', { roomId: roomIdRef.current, offer })
+            console.log('Sent WebRTC Offer')
+          } catch (err) { console.error('Offer create error:', err) }
+        }, 1000)
       }
 
-      // Start hand detection
       await initHandDetection()
     } catch (err) {
-      console.error('WebRTC error:', err)
+      console.error('Media error:', err)
       showToast('خطأ في الكاميرا أو الميكروفون', 'error')
     }
   }
