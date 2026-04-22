@@ -187,13 +187,34 @@ export default function VideoCallPage() {
     setTimeout(() => setFloatingEmoji(null), 2000)
   }
 
+  const refineSentence = (rawText: string) => {
+    // Logic: In a real scenario, this would call an LLM API like GPT-4o mini
+    // For now, we use a smart rule-based refiner that handles common ArSL patterns
+    let polished = rawText;
+    
+    // Example: Convert "I - Go - School" patterns to "I am going to school"
+    const replacements: Record<string, string> = {
+      'أنا يذهب': 'أنا ذاهب إلى',
+      'أنا يحب': 'أنا أحب',
+      'أمي يعمل': 'أمي تعمل في',
+      'أبي ينام': 'أبي نائم الآن',
+    };
+
+    Object.keys(replacements).forEach(key => {
+      if (polished.includes(key)) polished = polished.replace(key, replacements[key]);
+    });
+
+    return polished;
+  }
+
   const finalizeSentence = () => {
-    const text = sentenceBufferRef.current.trim()
-    if (text) {
-      const msg = { senderId: socketRef.current!.id, senderName: 'أنت', text, type: 'sign' as const }
+    const rawText = sentenceBufferRef.current.trim()
+    if (rawText) {
+      const refinedText = refineSentence(rawText)
+      const msg = { senderId: socketRef.current!.id, senderName: 'أنت', text: refinedText, type: 'sign' as const }
       setMessages(prev => [...prev, { ...msg, timestamp: Date.now() }])
-      socketRef.current?.emit('transcription:send', { roomId, text, type: 'sign' })
-      speakText(text)
+      socketRef.current?.emit('transcription:send', { roomId, text: refinedText, type: 'sign' })
+      speakText(refinedText)
     }
     sentenceBufferRef.current = ''; setSentenceDisplay(''); lastActivityRef.current = Date.now()
   }
