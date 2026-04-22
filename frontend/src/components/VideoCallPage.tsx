@@ -156,27 +156,44 @@ export default function VideoCallPage() {
     detect()
   }
 
+  const [floatingEmoji, setFloatingEmoji] = useState<{ emoji: string; x: number; y: number } | null>(null)
+
+  const triggerHaptic = () => {
+    if ('vibrate' in navigator) navigator.vibrate(50) // Small pulse
+  }
+
   const speakText = (text: string) => {
     if (!('speechSynthesis' in window)) return
     const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = 'ar-SA'
-    utterance.rate = 0.9 // Slow down slightly for clarity
-    utterance.pitch = 1.0
-    
-    // Attempt to find a natural Arabic voice if available
-    const voices = window.speechSynthesis.getVoices()
-    const arVoice = voices.find(v => v.lang.includes('ar'))
-    if (arVoice) utterance.voice = arVoice
-
+    utterance.lang = 'ar-SA'; utterance.rate = 0.9
     window.speechSynthesis.speak(utterance)
+  }
+
+  const confirmGesture = (g: ClassificationResult) => {
+    sentenceBufferRef.current += (g.name === 'Space' ? ' ' : g.arabic)
+    setSentenceDisplay(sentenceBufferRef.current)
+    triggerHaptic()
+    
+    // Trigger Floating Emoji (Idea #3)
+    if (g.name === 'Love') showFloatingEmoji('❤️')
+    else if (g.name === 'Win') showFloatingEmoji('🏆')
+    else if (g.name === 'Like') showFloatingEmoji('👍')
+    
+    showToast(`تمت إضافة: ${g.arabic}`, 'success')
+  }
+
+  const showFloatingEmoji = (emoji: string) => {
+    setFloatingEmoji({ emoji, x: 50, y: 50 }) // Default center for now
+    setTimeout(() => setFloatingEmoji(null), 2000)
   }
 
   const finalizeSentence = () => {
     const text = sentenceBufferRef.current.trim()
     if (text) {
-      setMessages(prev => [...prev, { senderId: socketRef.current!.id, senderName: 'أنت', text, type: 'sign', timestamp: Date.now() }])
+      const msg = { senderId: socketRef.current!.id, senderName: 'أنت', text, type: 'sign' as const }
+      setMessages(prev => [...prev, { ...msg, timestamp: Date.now() }])
       socketRef.current?.emit('transcription:send', { roomId, text, type: 'sign' })
-      speakText(text) // Speak the sentence for the hearing person
+      speakText(text)
     }
     sentenceBufferRef.current = ''; setSentenceDisplay(''); lastActivityRef.current = Date.now()
   }
@@ -255,6 +272,11 @@ export default function VideoCallPage() {
             <div className="video-wrapper-full">
               <video ref={localVideoRef} autoPlay playsInline muted style={{ transform: 'scaleX(-1)' }} />
               {sentenceDisplay && <div className="video-label" style={{ top: 10, bottom: 'auto', background: 'rgba(6,182,212,0.9)' }}>{sentenceDisplay}</div>}
+              {floatingEmoji && (
+                <div className="floating-emoji" style={{ left: `${floatingEmoji.x}%`, top: `${floatingEmoji.y}%` }}>
+                  {floatingEmoji.emoji}
+                </div>
+              )}
               <div className="video-label">👤 أنت</div>
             </div>
             {Array.from(remoteUsers.values()).map(user => (
@@ -272,7 +294,14 @@ export default function VideoCallPage() {
                 {messages.map((m, i) => (
                   <div key={i} className={`chat-bubble ${m.senderId === socketRef.current?.id ? 'local' : 'remote'}`}>
                     <div className="sender">{m.senderName}</div>
-                    <div>{m.text}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {m.text}
+                      {/* Speech-to-Sign Icons (Idea #1) */}
+                      {m.text.includes('أحبك') && <span>🤟</span>}
+                      {m.text.includes('شكراً') && <span>🙏</span>}
+                      {m.text.includes('مرحباً') && <span>👋</span>}
+                      {m.text.includes('فوز') && <span>🏆</span>}
+                    </div>
                   </div>
                 ))}
               </div>
