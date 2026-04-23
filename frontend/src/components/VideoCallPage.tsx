@@ -174,21 +174,19 @@ export default function VideoCallPage() {
     return pc
   }
 
-  const handConnectionsRef = useRef<any>(null)
+  // MediaPipe Hand connections (21 landmarks, 21 connections)
+  const HAND_CONNECTIONS = [
+    [0,1],[1,2],[2,3],[3,4],       // Thumb
+    [0,5],[5,6],[6,7],[7,8],       // Index
+    [5,9],[9,10],[10,11],[11,12],   // Middle
+    [9,13],[13,14],[14,15],[15,16], // Ring
+    [13,17],[17,18],[18,19],[19,20],// Pinky
+    [0,17]                          // Palm
+  ]
 
   const initHandDetection = async () => {
     const vision = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.4/wasm')
     handLandmarkerRef.current = await HandLandmarker.createFromOptions(vision, { baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task', delegate: 'GPU' }, runningMode: 'VIDEO', numHands: 2 })
-    
-    // Pre-import DrawingUtils and HAND_CONNECTIONS (so we don't await inside the loop)
-    const tasksVision = await import('@mediapipe/tasks-vision')
-    handConnectionsRef.current = tasksVision.HandLandmarker.CONNECTIONS
-    const canvas = canvasRef.current
-    if (canvas) {
-      const ctx = canvas.getContext('2d')
-      if (ctx) drawingUtilsRef.current = new tasksVision.DrawingUtils(ctx)
-    }
-    
     runDetection()
   }
 
@@ -206,15 +204,40 @@ export default function VideoCallPage() {
         const ctx = canvas.getContext('2d')
         if (ctx) {
           ctx.clearRect(0, 0, canvas.width, canvas.height)
-          const results = handLandmarkerRef.current.detectForVideo(video, performance.now())
+          const results = handLandmarkerRef.current!.detectForVideo(video, performance.now())
           
           if (results.landmarks.length > 0) {
-            // Draw hand skeleton
+            // Draw each detected hand
             for (const landmarks of results.landmarks) {
-              if (handConnectionsRef.current) {
-                drawingUtilsRef.current?.drawConnectors(landmarks, handConnectionsRef.current, { color: '#00FF00', lineWidth: 5 })
+              const w = canvas.width, h = canvas.height
+
+              // Draw connections (green lines)
+              ctx.strokeStyle = '#00FF00'
+              ctx.lineWidth = 3
+              ctx.shadowColor = '#00FF00'
+              ctx.shadowBlur = 8
+              for (const [a, b] of HAND_CONNECTIONS) {
+                ctx.beginPath()
+                ctx.moveTo(landmarks[a].x * w, landmarks[a].y * h)
+                ctx.lineTo(landmarks[b].x * w, landmarks[b].y * h)
+                ctx.stroke()
               }
-              drawingUtilsRef.current?.drawLandmarks(landmarks, { color: '#FF0000', lineWidth: 2 })
+
+              // Draw landmark points (red dots with cyan glow)
+              ctx.shadowColor = '#06B6D4'
+              ctx.shadowBlur = 12
+              for (let i = 0; i < landmarks.length; i++) {
+                const x = landmarks[i].x * w
+                const y = landmarks[i].y * h
+                ctx.beginPath()
+                ctx.arc(x, y, 5, 0, 2 * Math.PI)
+                ctx.fillStyle = i === 0 ? '#FFD700' : (i % 4 === 0 ? '#FF3366' : '#FF0000')
+                ctx.fill()
+                ctx.strokeStyle = '#FFFFFF'
+                ctx.lineWidth = 1.5
+                ctx.stroke()
+              }
+              ctx.shadowBlur = 0
             }
 
             const res = processGestureStream(results.landmarks[0] as any)
