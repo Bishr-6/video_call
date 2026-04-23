@@ -10,27 +10,26 @@ dotenv.config();
 
 const app = express();
 
-// Initialize OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Initialize OpenAI carefully to prevent crashes if key is missing
+let openai = null;
+if (process.env.OPENAI_API_KEY) {
+  openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+  console.log("✅ OpenAI Initialized");
+} else {
+  console.warn("⚠️ Warning: OPENAI_API_KEY is missing. AI features will be disabled.");
+}
 
 app.use(cors({
-  origin: (origin, callback) => {
-    const allowed = ['https://video-call-one-kappa.vercel.app', 'http://localhost:5173'];
-    if (!origin || allowed.includes(origin.replace(/\/$/, ''))) {
-      callback(null, true);
-    } else {
-      callback(null, true); // Fallback to allow during transitions
-    }
-  },
+  origin: true, // Allow all origins for easier debugging, or specify your vercel URL
   credentials: true
 }));
 
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: ["https://video-call-one-kappa.vercel.app", "http://localhost:5173"],
+    origin: "*", // Allow all origins for Socket.io to fix CORS issues
     methods: ["GET", "POST"],
     credentials: true
   }
