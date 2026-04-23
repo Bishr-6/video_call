@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision'
 import { ArabicSignLanguageEngine, PredictionSmoother, assembleLettersToWords } from './ArabicSignLanguageEngine'
-import { GESTURES, processGestureStream, type ClassificationResult } from './SignLanguageClassifier'
+import { GESTURES, processGestureStream, type ClassificationResult, type DetectionMode } from './SignLanguageClassifier'
 
 type CallStatus = 'idle' | 'searching' | 'in-room'
 
@@ -56,6 +56,7 @@ export default function VideoCallPage() {
   const [showPrivateOptions, setShowPrivateOptions] = useState(false)
   const [isListening, setIsListening] = useState(false)
   const [receivedSignSequence, setReceivedSignSequence] = useState<string[]>([])
+  const [detectionMode, setDetectionMode] = useState<DetectionMode>('all')
 
   const socketRef = useRef<Socket | null>(null)
   const recognitionRef = useRef<any>(null)
@@ -257,7 +258,7 @@ export default function VideoCallPage() {
               ctx.shadowBlur = 0
             }
 
-            const res = processGestureStream(results.landmarks[0] as any)
+            const res = processGestureStream(results.landmarks[0] as any, detectionMode)
             currentGestureRef.current = res.currentGesture
             const now = Date.now()
             if (res.currentGesture) {
@@ -440,6 +441,17 @@ export default function VideoCallPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+            
+            {/* Mode Selector Panel */}
+            <div className="glass-strong p-4 flex flex-col gap-2">
+              <h4 style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: 4 }}>🎯 نمط التعرف الذكي</h4>
+              <div className="flex gap-2 flex-wrap">
+                <button className={`btn btn-sm ${detectionMode === 'all' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('all')}>🌐 الكل</button>
+                <button className={`btn btn-sm ${detectionMode === 'letter' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('letter')}>🔤 حروف</button>
+                <button className={`btn btn-sm ${detectionMode === 'number' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('number')}>🔢 أرقام</button>
+                <button className={`btn btn-sm ${detectionMode === 'action' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('action')}>🎬 أفعال</button>
               </div>
             </div>
 

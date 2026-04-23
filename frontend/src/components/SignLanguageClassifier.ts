@@ -100,7 +100,11 @@ export const GESTURES: GestureDef[] = [
     return 0;
   }},
   { name: 'Dal', arabic: 'د', category: 'letter', match: (lm, fs) => {
-    if (fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky && fingersTouching(lm, THUMB_TIP, INDEX_TIP, 0.08)) return 0.85;
+    // Dal: Index and Thumb curved toward each other (C shape)
+    if (fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) {
+      const d = dist(lm[THUMB_TIP], lm[INDEX_TIP]);
+      if (d < 0.1 && lm[INDEX_TIP].y < lm[INDEX_MCP].y) return 0.85;
+    }
     return 0;
   }},
   { name: 'Thal', arabic: 'ذ', category: 'letter', match: (lm, fs) => {
@@ -169,8 +173,9 @@ export const GESTURES: GestureDef[] = [
     return 0;
   }},
   { name: 'Fa', arabic: 'ف', category: 'letter', match: (lm, fs) => {
+    // Fa: Index and Thumb tips touching (forming a hole)
     if (fs.thumb && fs.index && !fs.middle && !fs.ring && !fs.pinky) {
-      if (fingersTouching(lm, THUMB_TIP, INDEX_TIP, 0.05)) return 0.85;
+      if (fingersTouching(lm, THUMB_TIP, INDEX_TIP, 0.04)) return 0.9;
     }
     return 0;
   }},
@@ -1097,7 +1102,9 @@ export const GESTURES: GestureDef[] = [
 // ============================================
 // Main Classifier
 // ============================================
-export function classifyGesture(landmarks: HandLandmark[]): ClassificationResult | null {
+export type DetectionMode = 'all' | 'letter' | 'number' | 'action' | 'word'
+
+export function classifyGesture(landmarks: HandLandmark[], mode: DetectionMode = 'all'): ClassificationResult | null {
   if (!landmarks || landmarks.length < 21) return null;
 
   const fs = getFingerStates(landmarks);
@@ -1105,6 +1112,13 @@ export function classifyGesture(landmarks: HandLandmark[]): ClassificationResult
   let bestConf = 0;
 
   for (const g of GESTURES) {
+    // Filter by mode if not 'all'
+    if (mode !== 'all') {
+      if (mode === 'action' && g.category === 'word') { /* allow words in action mode */ }
+      else if (mode === 'word' && g.category === 'action') { /* allow actions in word mode */ }
+      else if (g.category !== mode) continue;
+    }
+
     const conf = g.match(landmarks, fs);
     if (conf > bestConf && conf > 0.5) {
       bestConf = conf;
@@ -1124,16 +1138,15 @@ export function classifyGesture(landmarks: HandLandmark[]): ClassificationResult
 let letterBuffer: string[] = [];
 let lastLetterTime = 0;
 let lastGesture = '';
-let gestureHoldCount = 0;
-const HOLD_THRESHOLD = 8; // frames to confirm a gesture
+const HOLD_THRESHOLD = 12; // Increased from 8 for better stability
 const WORD_TIMEOUT = 2000; // ms gap = new word
 
-export function processGestureStream(landmarks: HandLandmark[]): {
+export function processGestureStream(landmarks: HandLandmark[], mode: DetectionMode = 'all'): {
   currentGesture: ClassificationResult | null;
   currentWord: string;
   confirmedWord: string | null;
 } {
-  const result = classifyGesture(landmarks);
+  const result = classifyGesture(landmarks, mode);
   const now = Date.now();
   let confirmedWord: string | null = null;
 
