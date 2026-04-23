@@ -24,13 +24,30 @@ interface RemoteUser {
 // Setup for Arabic Sign Engine
 const signEngine = new ArabicSignLanguageEngine(GESTURES.map(g => ({ arabic: g.arabic, signId: g.name, category: g.category })))
 
+function RemoteVideo({ stream, displayName }: { stream?: MediaStream; displayName: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => {
+    if (videoRef.current && stream && videoRef.current.srcObject !== stream) {
+      videoRef.current.srcObject = stream
+    }
+  }, [stream])
+
+  return (
+    <div className="video-wrapper-full">
+      <video ref={videoRef} autoPlay playsInline />
+      <div className="video-label">👥 {displayName}</div>
+    </div>
+  )
+}
+
 export default function VideoCallPage() {
   const [status, setStatus] = useState<CallStatus>('idle')
   const [isDeaf, setIsDeaf] = useState(true)
   const [messages, setMessages] = useState<Message[]>([])
   const [roomId, setRoomId] = useState('')
   const [remoteUsers, setRemoteUsers] = useState<Map<string, RemoteUser>>(new Map())
-  const [currentGesture, setCurrentGesture] = useState<ClassificationResult | null>(null)
+  const currentGestureRef = useRef<ClassificationResult | null>(null)
   const [isMuted, setIsMuted] = useState(false)
   const [isCamOff, setIsCamOff] = useState(false)
   const [isSharingScreen, setIsSharingScreen] = useState(false)
@@ -241,7 +258,7 @@ export default function VideoCallPage() {
             }
 
             const res = processGestureStream(results.landmarks[0] as any)
-            setCurrentGesture(res.currentGesture)
+            currentGestureRef.current = res.currentGesture
             const now = Date.now()
             if (res.currentGesture) {
               lastActivityRef.current = now
@@ -253,7 +270,7 @@ export default function VideoCallPage() {
             }
           } else {
             if (sentenceBufferRef.current && Date.now() - lastActivityRef.current > 5000) finalizeSentence()
-            setCurrentGesture(null); lastGestureRef.current = null
+            currentGestureRef.current = null; lastGestureRef.current = null
           }
         }
       }
@@ -390,10 +407,7 @@ export default function VideoCallPage() {
               <div className="video-label">👤 أنت</div>
             </div>
             {Array.from(remoteUsers.values()).map(user => (
-              <div key={user.id} className="video-wrapper-full">
-                <video autoPlay playsInline ref={el => { if (el && user.stream) el.srcObject = user.stream }} />
-                <div className="video-label">👥 {user.displayName}</div>
-              </div>
+              <RemoteVideo key={user.id} stream={user.stream} displayName={user.displayName} />
             ))}
           </div>
 
