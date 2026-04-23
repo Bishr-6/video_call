@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision'
-import { processGestureStream, resetBuffer, type ClassificationResult } from './SignLanguageClassifier'
+import { ArabicSignLanguageEngine } from './ArabicSignLanguageEngine'
+import { GESTURES, processGestureStream, type ClassificationResult } from './SignLanguageClassifier'
 
 type CallStatus = 'idle' | 'searching' | 'in-room'
 
@@ -20,6 +21,9 @@ interface RemoteUser {
   stream?: MediaStream
 }
 
+// Setup for Arabic Sign Engine
+const signEngine = new ArabicSignLanguageEngine(GESTURES.map(g => ({ arabic: g.arabic, signId: g.name, category: g.category })))
+
 export default function VideoCallPage() {
   const [status, setStatus] = useState<CallStatus>('idle')
   const [isDeaf, setIsDeaf] = useState(true)
@@ -33,9 +37,14 @@ export default function VideoCallPage() {
   const [toast, setToast] = useState<{ msg: string; type: string } | null>(null)
   const [showInstructions, setShowInstructions] = useState(false)
   const [showPrivateOptions, setShowPrivateOptions] = useState(false)
+  const [isListening, setIsListening] = useState(false)
+  const [receivedSignSequence, setReceivedSignSequence] = useState<string[]>([])
 
   const socketRef = useRef<Socket | null>(null)
+  const recognitionRef = useRef<any>(null)
   const localVideoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const drawingUtilsRef = useRef<any>(null)
   const localStreamRef = useRef<MediaStream | null>(null)
   const screenStreamRef = useRef<MediaStream | null>(null)
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map())
@@ -49,6 +58,39 @@ export default function VideoCallPage() {
 
   const showToast = (msg: string, type = 'info') => {
     setToast({ msg, type }); setTimeout(() => setToast(null), 3000)
+  }
+
+  const toggleSpeechRecognition = () => {
+    if (isListening) {
+      recognitionRef.current?.stop()
+      setIsListening(false)
+    } else {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+      if (!SpeechRecognition) {
+        showToast('متصفحك لا يدعم التعرف على الصوت', 'error')
+        return
+      }
+      const recognition = new SpeechRecognition()
+      recognition.lang = 'ar-SA'
+      recognition.continuous = true
+      recognition.interimResults = false
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[event.results.length - 1][0].transcript
+        handleSendSpeech(transcript)
+      }
+
+      recognition.start()
+      recognitionRef.current = recognition
+      setIsListening(true)
+      showToast('جاري الاستماع لكلامك وترجمته للإشارة...', 'success')
+    }
+  }
+
+  const handleSendSpeech = (text: string) => {
+    const msg = { senderId: socketRef.current!.id, senderName: 'أنت (صوت)', text, type: 'speech' as const }
+    setMessages(prev => [...prev, { ...msg, timestamp: Date.now() }])
+    socketRef.current?.emit('transcription:send', { roomId, text, type: 'speech' })
   }
 
   const connectSocket = useCallback(() => {
@@ -100,7 +142,14 @@ export default function VideoCallPage() {
       if (signal.candidate) await pc.addIceCandidate(new RTCIceCandidate(signal.candidate)).catch(() => {})
     })
 
-    socket.on('transcription:received', (data) => setMessages(prev => [...prev, { ...data, timestamp: Date.now() }]))
+    socket.on('transcription:received', (data) => {
+      setMessages(prev => [...prev, { ...data, timestamp: Date.now() }])
+      if (data.type === 'speech' && isDeaf) {
+        const sequence = signEngine.translate(data.text)
+        setReceivedSignSequence(sequence)
+        setTimeout(() => setReceivedSignSequence([]), 5000) // Clear after 5s
+      }
+    })
 
     socket.on('user:left', (data) => {
       peersRef.current.get(data.id)?.close()
@@ -125,18 +174,19 @@ export default function VideoCallPage() {
     return pc
   }
 
+  const handConnectionsRef = useRef<any>(null)
+
   const initHandDetection = async () => {
     const vision = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.4/wasm')
     handLandmarkerRef.current = await HandLandmarker.createFromOptions(vision, { baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task', delegate: 'GPU' }, runningMode: 'VIDEO', numHands: 2 })
     
-    // Initialize DrawingUtils
+    // Pre-import DrawingUtils and HAND_CONNECTIONS (so we don't await inside the loop)
+    const tasksVision = await import('@mediapipe/tasks-vision')
+    handConnectionsRef.current = tasksVision.HandLandmarker.CONNECTIONS
     const canvas = canvasRef.current
     if (canvas) {
       const ctx = canvas.getContext('2d')
-      if (ctx) {
-        const { DrawingUtils } = await import('@mediapipe/tasks-vision')
-        drawingUtilsRef.current = new DrawingUtils(ctx)
-      }
+      if (ctx) drawingUtilsRef.current = new tasksVision.DrawingUtils(ctx)
     }
     
     runDetection()
@@ -159,11 +209,11 @@ export default function VideoCallPage() {
           const results = handLandmarkerRef.current.detectForVideo(video, performance.now())
           
           if (results.landmarks.length > 0) {
-            // Draw lines and points
-            const { HAND_CONNECTIONS } = await import('@mediapipe/tasks-vision')
-            
+            // Draw hand skeleton
             for (const landmarks of results.landmarks) {
-              drawingUtilsRef.current?.drawConnectors(landmarks, HAND_CONNECTIONS, { color: '#00FF00', lineWidth: 5 })
+              if (handConnectionsRef.current) {
+                drawingUtilsRef.current?.drawConnectors(landmarks, handConnectionsRef.current, { color: '#00FF00', lineWidth: 5 })
+              }
               drawingUtilsRef.current?.drawLandmarks(landmarks, { color: '#FF0000', lineWidth: 2 })
             }
 
@@ -343,6 +393,18 @@ export default function VideoCallPage() {
           </div>
 
           <div className="call-bottom-panel">
+            {/* Sign Sequence Display (Idea #1 - Speech-to-Sign) */}
+            {isDeaf && receivedSignSequence.length > 0 && (
+              <div className="sign-sequence-overlay glass-strong">
+                {receivedSignSequence.map((id, idx) => (
+                  <div key={idx} className="sign-card">
+                    <div className="sign-icon">🤟</div>
+                    <div className="sign-name">{id}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="glass-strong transcript-panel-bottom">
               <h3>💬 المحادثة {roomId && <span style={{ fontSize: '0.8rem', opacity: 0.5 }}>- الرمز: {roomId}</span>}</h3>
               <div style={{ height: 'calc(100% - 40px)', overflowY: 'auto' }}>
@@ -380,6 +442,7 @@ export default function VideoCallPage() {
                    } else { screenStreamRef.current?.getTracks().forEach(t => t.stop()); setIsSharingScreen(false) }
                  }}>🖥️</button>
                  <button className={`btn btn-icon ${isMuted ? 'btn-danger' : 'btn-ghost'}`} onClick={() => { localStreamRef.current?.getAudioTracks().forEach(t => t.enabled = isMuted); setIsMuted(!isMuted) }}>{isMuted ? '🔇' : '🔊'}</button>
+                 {!isDeaf && <button className={`btn btn-icon ${isListening ? 'active-pulse' : 'btn-ghost'}`} onClick={toggleSpeechRecognition} title="ترجمة كلامك إلى إشارة">{isListening ? '🛑' : '🎙️'}</button>}
                  <button className="btn btn-danger" onClick={() => window.location.reload()}>📵 مغادرة</button>
                </div>
                <form className="flex gap-2" onSubmit={(e) => {

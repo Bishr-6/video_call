@@ -69,7 +69,7 @@ interface GestureDef {
   match: (lm: HandLandmark[], fs: ReturnType<typeof getFingerStates>) => number;
 }
 
-const GESTURES: GestureDef[] = [
+export const GESTURES: GestureDef[] = [
   // === ARABIC LETTERS ===
   { name: 'Alef', arabic: 'أ', category: 'letter', match: (lm, fs) => {
     if (fs.index && !fs.middle && !fs.ring && !fs.pinky && !fs.thumb) return 0.9;
