@@ -128,28 +128,61 @@ export default function VideoCallPage() {
   const initHandDetection = async () => {
     const vision = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.4/wasm')
     handLandmarkerRef.current = await HandLandmarker.createFromOptions(vision, { baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task', delegate: 'GPU' }, runningMode: 'VIDEO', numHands: 2 })
+    
+    // Initialize DrawingUtils
+    const canvas = canvasRef.current
+    if (canvas) {
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        const { DrawingUtils } = await import('@mediapipe/tasks-vision')
+        drawingUtilsRef.current = new DrawingUtils(ctx)
+      }
+    }
+    
     runDetection()
   }
 
   const runDetection = () => {
     const detect = () => {
-      if (!localVideoRef.current || !handLandmarkerRef.current || localVideoRef.current.readyState < 2) { animFrameRef.current = requestAnimationFrame(detect); return }
-      const results = handLandmarkerRef.current.detectForVideo(localVideoRef.current, performance.now())
-      if (results.landmarks.length > 0) {
-        const res = processGestureStream(results.landmarks[0] as any)
-        setCurrentGesture(res.currentGesture)
-        const now = Date.now()
-        if (res.currentGesture) {
-          lastActivityRef.current = now
-          if (res.currentGesture.name !== lastGestureRef.current) { lastGestureRef.current = res.currentGesture.name; gestureStartTimeRef.current = now }
-          else if (now - gestureStartTimeRef.current > 3000) {
-            sentenceBufferRef.current += (res.currentGesture.name === 'Space' ? ' ' : res.currentGesture.arabic)
-            setSentenceDisplay(sentenceBufferRef.current); lastGestureRef.current = null; showToast(`تمت إضافة: ${res.currentGesture.arabic}`, 'success')
+      if (!localVideoRef.current || !handLandmarkerRef.current || localVideoRef.current.readyState < 2) { 
+        animFrameRef.current = requestAnimationFrame(detect); return 
+      }
+      
+      const video = localVideoRef.current
+      const canvas = canvasRef.current
+      if (canvas) {
+        canvas.width = video.videoWidth
+        canvas.height = video.videoHeight
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height)
+          const results = handLandmarkerRef.current.detectForVideo(video, performance.now())
+          
+          if (results.landmarks.length > 0) {
+            // Draw lines and points
+            const { HAND_CONNECTIONS } = await import('@mediapipe/tasks-vision')
+            
+            for (const landmarks of results.landmarks) {
+              drawingUtilsRef.current?.drawConnectors(landmarks, HAND_CONNECTIONS, { color: '#00FF00', lineWidth: 5 })
+              drawingUtilsRef.current?.drawLandmarks(landmarks, { color: '#FF0000', lineWidth: 2 })
+            }
+
+            const res = processGestureStream(results.landmarks[0] as any)
+            setCurrentGesture(res.currentGesture)
+            const now = Date.now()
+            if (res.currentGesture) {
+              lastActivityRef.current = now
+              if (res.currentGesture.name !== lastGestureRef.current) { 
+                lastGestureRef.current = res.currentGesture.name; gestureStartTimeRef.current = now 
+              } else if (now - gestureStartTimeRef.current > 3000) {
+                confirmGesture(res.currentGesture); lastGestureRef.current = null
+              }
+            }
+          } else {
+            if (sentenceBufferRef.current && Date.now() - lastActivityRef.current > 5000) finalizeSentence()
+            setCurrentGesture(null); lastGestureRef.current = null
           }
         }
-      } else {
-        if (sentenceBufferRef.current && Date.now() - lastActivityRef.current > 5000) finalizeSentence()
-        setCurrentGesture(null); lastGestureRef.current = null
       }
       animFrameRef.current = requestAnimationFrame(detect)
     }
@@ -292,6 +325,7 @@ export default function VideoCallPage() {
           <div className="video-grid-split" style={{ gridTemplateColumns: remoteUsers.size === 1 ? '1fr 1fr' : `repeat(${Math.min(remoteUsers.size + 1, 3)}, 1fr)` }}>
             <div className="video-wrapper-full">
               <video ref={localVideoRef} autoPlay playsInline muted style={{ transform: 'scaleX(-1)' }} />
+              <canvas ref={canvasRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', transform: 'scaleX(-1)' }} />
               {sentenceDisplay && <div className="video-label" style={{ top: 10, bottom: 'auto', background: 'rgba(6,182,212,0.9)' }}>{sentenceDisplay}</div>}
               {floatingEmoji && (
                 <div className="floating-emoji" style={{ left: `${floatingEmoji.x}%`, top: `${floatingEmoji.y}%` }}>
