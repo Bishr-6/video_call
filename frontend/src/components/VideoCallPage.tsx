@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision'
-import { ArabicSignLanguageEngine } from './ArabicSignLanguageEngine'
+import { ArabicSignLanguageEngine, PredictionSmoother, assembleLettersToWords } from './ArabicSignLanguageEngine'
 import { GESTURES, processGestureStream, type ClassificationResult } from './SignLanguageClassifier'
 
 type CallStatus = 'idle' | 'searching' | 'in-room'
@@ -270,25 +270,7 @@ export default function VideoCallPage() {
     setTimeout(() => setFloatingEmoji(null), 2000)
   }
 
-  const refineSentence = (rawText: string) => {
-    // Logic: In a real scenario, this would call an LLM API like GPT-4o mini
-    // For now, we use a smart rule-based refiner that handles common ArSL patterns
-    let polished = rawText;
-    
-    // Example: Convert "I - Go - School" patterns to "I am going to school"
-    const replacements: Record<string, string> = {
-      'أنا يذهب': 'أنا ذاهب إلى',
-      'أنا يحب': 'أنا أحب',
-      'أمي يعمل': 'أمي تعمل في',
-      'أبي ينام': 'أبي نائم الآن',
-    };
-
-    Object.keys(replacements).forEach(key => {
-      if (polished.includes(key)) polished = polished.replace(key, replacements[key]);
-    });
-
-    return polished;
-  }
+  const refineSentence = (rawText: string) => signEngine.refine(rawText)
 
   const finalizeSentence = () => {
     const rawText = sentenceBufferRef.current.trim()
