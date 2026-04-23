@@ -1138,6 +1138,7 @@ export function classifyGesture(landmarks: HandLandmark[], mode: DetectionMode =
 let letterBuffer: string[] = [];
 let lastLetterTime = 0;
 let lastGesture = '';
+let gestureHoldCount = 0; // Fixed: Declared missing variable
 const HOLD_THRESHOLD = 12; // Increased from 8 for better stability
 const WORD_TIMEOUT = 2000; // ms gap = new word
 

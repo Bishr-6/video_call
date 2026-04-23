@@ -3,8 +3,17 @@ import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import { v4 as uuidv4 } from 'uuid';
+import OpenAI from 'openai';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
+
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -35,6 +44,54 @@ io.on('connection', (socket) => {
   socket.on('user:register', (data) => {
     users.set(socket.id, { id: socket.id, displayName: data.displayName || 'مستخدم', isDeaf: data.isDeaf || false, roomId: null });
     socket.emit('user:registered', { id: socket.id });
+  });
+
+  // --- AI Brain & Voice Logic ---
+  socket.on('ai:process', async (data) => {
+    const { text, roomId } = data;
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('❌ OpenAI API Key is missing!');
+      return;
+    }
+
+    try {
+      // 1. Brain: Refine the raw sign words into a natural Arabic sentence
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: "You are an expert translator for Emirati Sign Language. Convert raw keywords into a natural, grammatically correct, and polite Arabic sentence suitable for a live voice call. Respond ONLY with the refined sentence in Arabic. No explanations." },
+          { role: "user", content: `Raw keywords: ${text}` }
+        ],
+        max_tokens: 50,
+      });
+
+      const refinedText = completion.choices[0].message.content.trim();
+
+      // 2. Voice: Convert refined text to Speech (Onyx - Deep Male Voice)
+      const mp3 = await openai.audio.speech.create({
+        model: "tts-1",
+        voice: "onyx",
+        input: refinedText,
+      });
+
+      const buffer = Buffer.from(await mp3.arrayBuffer());
+      const audioBase64 = buffer.toString('base64');
+
+      // 3. Send back to the room
+      const payload = {
+        senderId: socket.id,
+        senderName: users.get(socket.id)?.displayName || 'مستخدم',
+        text: refinedText,
+        audio: `data:audio/mp3;base64,${audioBase64}`,
+        type: 'sign'
+      };
+
+      // Emit to everyone in the room (including sender)
+      io.to(roomId).emit('ai:result', payload);
+      
+    } catch (error) {
+      console.error('AI Error:', error);
+    }
   });
 
   // --- Random 1-on-1 Chat Logic ---

@@ -169,6 +169,17 @@ export default function VideoCallPage() {
       }
     })
 
+    socket.on('ai:result', (data) => {
+      const { text, audio, senderId, senderName } = data;
+      setMessages(prev => [...prev, { senderId, senderName, text, type: 'sign', timestamp: Date.now() }]);
+      
+      // Play the AI generated human voice
+      if (audio) {
+        const audioObj = new Audio(audio);
+        audioObj.play().catch(e => console.error("Audio playback failed:", e));
+      }
+    })
+
     socket.on('user:left', (data) => {
       peersRef.current.get(data.id)?.close()
       peersRef.current.delete(data.id)
@@ -316,11 +327,8 @@ export default function VideoCallPage() {
   const finalizeSentence = () => {
     const rawText = sentenceBufferRef.current.trim()
     if (rawText) {
-      const refinedText = refineSentence(rawText)
-      const msg = { senderId: socketRef.current!.id, senderName: 'أنت', text: refinedText, type: 'sign' as const }
-      setMessages(prev => [...prev, { ...msg, timestamp: Date.now() }])
-      socketRef.current?.emit('transcription:send', { roomId, text: refinedText, type: 'sign' })
-      speakText(refinedText)
+      // Send to AI for intelligent refinement and natural voice generation
+      socketRef.current?.emit('ai:process', { roomId, text: rawText });
     }
     sentenceBufferRef.current = ''; setSentenceDisplay(''); lastActivityRef.current = Date.now()
   }
