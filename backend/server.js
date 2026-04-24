@@ -6,49 +6,43 @@ import { v4 as uuidv4 } from 'uuid';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 import ytdl from '@distube/ytdl-core';
+import { YoutubeTranscript } from 'youtube-transcript';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import { finished } from 'stream/promises';
 
 dotenv.config();
 
 const app = express();
 
-// Initialize OpenAI carefully to prevent crashes if key is missing
+// Initialize OpenAI
 let openai = null;
 if (process.env.OPENAI_API_KEY) {
-  openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
+  openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   console.log("✅ OpenAI Initialized");
 } else {
-  console.warn("⚠️ Warning: OPENAI_API_KEY is missing. AI features will be disabled.");
+  console.warn("⚠️ Warning: OPENAI_API_KEY is missing.");
 }
 
-app.use(cors({
-  origin: true,
-  credentials: true
-}));
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // ── Health Check ─────────────────────────────────────────────────
-app.get('/', (req, res) => res.json({ status: 'ok', service: 'Eshara Backend', version: '3.0.0-ytdl' }));
+app.get('/', (req, res) => res.json({ status: 'ok', service: 'Eshara Backend', version: '4.0.0' }));
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 app.get('/debug', (req, res) => res.json({
-  version: '2.0.0',
+  version: '4.0.0',
   openai_ready: !!openai,
-  rapidapi_key_set: !!process.env.RAPIDAPI_KEY,
-  deepgram_key_set: !!process.env.DEEPGRAM_API_KEY,
-  n8n_webhook: process.env.N8N_WEBHOOK_URL ? 'set' : 'not set',
   node_env: process.env.NODE_ENV || 'not set',
-  pipeline_mode: (!!process.env.RAPIDAPI_KEY && !!process.env.DEEPGRAM_API_KEY && !!openai) ? 'DIRECT' : 'DEMO'
+  pipeline: 'YouTube Transcript → Whisper → GPT-4o-mini'
 }));
 
-// ── Sign Language Pipeline (Direct - No n8n needed) ─────────────
+// ══════════════════════════════════════════════════════════════════
+// ██  SIGN LANGUAGE PIPELINE v4.0  ████████████████████████████████
+// ══════════════════════════════════════════════════════════════════
 
-const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || '';
-const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY || '';
-const N8N_WEBHOOK = process.env.N8N_WEBHOOK_URL || '';
-
-// Extract YouTube video ID from URL
 function extractYouTubeId(url) {
   const patterns = [
     /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([^&\n?#]+)/,
@@ -61,153 +55,158 @@ function extractYouTubeId(url) {
   return null;
 }
 
-// Step 1: Get audio URL (multiple methods)
-async function getAudioUrl(videoUrl) {
-  const videoId = extractYouTubeId(videoUrl);
-  if (!videoId) throw new Error('رابط YouTube غير صحيح');
-
-  const fullUrl = `https://www.youtube.com/watch?v=${videoId}`;
-
-  // Method 1: ytdl-core
+// ── METHOD 1: YouTube Transcript (FREE) ──────────────────────────
+async function getYouTubeTranscript(videoId) {
   try {
-    console.log('  📦 Method 1: ytdl-core...');
-    const info = await ytdl.getInfo(fullUrl);
-    const audioFormats = ytdl.filterFormats(info.formats, 'audioonly');
-    if (audioFormats.length > 0) {
-      const best = audioFormats.sort((a, b) => (b.audioBitrate || 0) - (a.audioBitrate || 0))[0];
-      console.log(`  ✅ ytdl-core: audio found (${best.audioBitrate}kbps)`);
-      return { type: 'url', url: best.url };
+    console.log('  📝 Method 1: YouTube Transcript (free)...');
+    const languages = ['ar', 'en', 'fr', 'es'];
+    
+    for (const lang of languages) {
+      try {
+        const items = await YoutubeTranscript.fetchTranscript(videoId, { lang });
+        if (items?.length > 0) {
+          const text = items.map(i => i.text).join(' ');
+          console.log(`  ✅ Got transcript [${lang}] (${items.length} segments, ${text.length} chars)`);
+          return { text, lang };
+        }
+      } catch (e) { /* try next */ }
     }
-    const withAudio = info.formats.filter(f => f.hasAudio);
-    if (withAudio.length > 0) {
-      console.log('  ✅ ytdl-core: video+audio format');
-      return { type: 'url', url: withAudio[0].url };
+    
+    // Try without language
+    const items = await YoutubeTranscript.fetchTranscript(videoId);
+    if (items?.length > 0) {
+      const text = items.map(i => i.text).join(' ');
+      console.log(`  ✅ Got transcript [auto] (${items.length} segments)`);
+      return { text, lang: 'auto' };
     }
   } catch (e) {
-    console.log(`  ❌ ytdl-core: ${e.message?.substring(0, 100)}`);
+    console.log(`  ❌ YouTube Transcript: ${e.message?.substring(0, 100)}`);
   }
+  return null;
+}
 
-  // Method 2: RapidAPI
-  if (RAPIDAPI_KEY) {
-    try {
-      console.log('  📦 Method 2: RapidAPI...');
-      const res = await fetch(`https://youtube-mp36.p.rapidapi.com/dl?id=${videoId}`, {
-        method: 'GET',
-        headers: { 'X-RapidAPI-Key': RAPIDAPI_KEY, 'X-RapidAPI-Host': 'youtube-mp36.p.rapidapi.com' },
-        signal: AbortSignal.timeout(15000)
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.link) {
-          console.log('  ✅ RapidAPI: got link');
-          return { type: 'url', url: data.link };
-        }
-      }
-    } catch (e) {
-      console.log(`  ❌ RapidAPI: ${e.message?.substring(0, 100)}`);
-    }
-  }
-
-  // Method 3: Get video metadata for GPT-based translation (no audio needed)
-  console.log('  📦 Method 3: Fetching video metadata for GPT fallback...');
+// ── METHOD 2: OpenAI Whisper ($0.006/min) ────────────────────────
+async function whisperTranscribe(videoId) {
+  if (!openai) return null;
+  
+  const tmpFile = path.join(os.tmpdir(), `eshara_${videoId}_${Date.now()}.webm`);
+  
   try {
-    const metaRes = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(fullUrl)}`, {
+    console.log('  🎤 Method 2: Whisper ($0.006/min)...');
+    const fullUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    
+    // Download audio
+    console.log('    ⬇️ Downloading audio...');
+    const stream = ytdl(fullUrl, { filter: 'audioonly', quality: 'lowestaudio' });
+    const writeStream = fs.createWriteStream(tmpFile);
+    stream.pipe(writeStream);
+    await finished(writeStream);
+    
+    const fileSize = fs.statSync(tmpFile).size;
+    console.log(`    📦 Downloaded: ${(fileSize / 1024 / 1024).toFixed(2)} MB`);
+    
+    if (fileSize < 1000) {
+      throw new Error('Audio file too small — video may be blocked');
+    }
+    
+    // Whisper API (max 25MB)
+    if (fileSize > 25 * 1024 * 1024) {
+      throw new Error('Audio too large for Whisper (>25MB)');
+    }
+    
+    console.log('    🧠 Transcribing with Whisper...');
+    const transcription = await openai.audio.transcriptions.create({
+      file: fs.createReadStream(tmpFile),
+      model: 'whisper-1',
+      language: 'ar',
+      response_format: 'text'
+    });
+    
+    fs.unlinkSync(tmpFile);
+    
+    if (transcription && transcription.length > 5) {
+      console.log(`  ✅ Whisper: "${transcription.substring(0, 100)}..."`);
+      return transcription;
+    }
+  } catch (e) {
+    console.log(`  ❌ Whisper: ${e.message?.substring(0, 100)}`);
+    try { fs.unlinkSync(tmpFile); } catch {}
+  }
+  return null;
+}
+
+// ── METHOD 3: Metadata Fallback ──────────────────────────────────
+async function getVideoMetadata(videoId) {
+  try {
+    const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`, {
       signal: AbortSignal.timeout(10000)
     });
-    if (metaRes.ok) {
-      const meta = await metaRes.json();
-      console.log(`  ✅ Got metadata: "${meta.title}"`);
-      return { type: 'metadata', title: meta.title || '', author: meta.author_name || '' };
+    if (res.ok) {
+      const meta = await res.json();
+      return { title: meta.title || '', author: meta.author_name || '' };
     }
-  } catch (e) {
-    console.log(`  ❌ Metadata: ${e.message}`);
-  }
-
-  return { type: 'metadata', title: 'فيديو YouTube', author: '' };
+  } catch (e) { /* ignore */ }
+  return { title: 'فيديو', author: '' };
 }
 
-// Step 2: Transcribe audio with Deepgram
-async function transcribeAudio(audioSource) {
-  // If we only have metadata (no audio URL), skip transcription
-  if (audioSource.type === 'metadata') {
-    console.log('  ⚠️ No audio URL - using metadata for GPT');
-    return null; // Will be handled by convertToSignGloss
-  }
-
-  const res = await fetch('https://api.deepgram.com/v1/listen?model=nova-2&language=ar&smart_format=true&punctuate=true', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Token ${DEEPGRAM_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ url: audioSource.url }),
-    signal: AbortSignal.timeout(60000)
-  });
-  if (!res.ok) {
-    const errBody = await res.text().catch(() => '');
-    throw new Error(`Deepgram error: ${res.status} - ${errBody.substring(0, 200)}`);
-  }
-  const data = await res.json();
-  const transcript = data?.results?.channels?.[0]?.alternatives?.[0]?.transcript || '';
-  if (!transcript) throw new Error('لم يتم التعرف على الكلام في الفيديو');
-  return transcript;
-}
-
-// Step 3: Convert to Sign Language Gloss via OpenAI
-async function convertToSignGloss(transcript) {
+// ── GPT: Convert to Sign Language Gloss ──────────────────────────
+async function convertToSignGloss(text, sourceLang) {
   if (!openai) throw new Error('OpenAI غير متاح');
+
+  const langNote = sourceLang && sourceLang !== 'ar' 
+    ? `النص الأصلي باللغة ${sourceLang === 'en' ? 'الإنجليزية' : sourceLang}. ترجمه أولاً للعربية ثم حوّله.` 
+    : '';
 
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
       {
         role: 'system',
-        content: `أنت خبير متخصص في لغة الإشارة الإماراتية والعربية. مهمتك تحويل النصوص العربية إلى Sign Language Gloss.
-اتبع هذه القواعد:
-1. احذف: الحروف الجر (في، على، من، إلى)، الضمائر غير الضرورية، أدوات التعريف
-2. أعد ترتيب الكلمات: الموضوع → الفعل → المفعول
-3. استخدم المفرد بدل الجمع عند الإمكان
-4. حلل المشاعر من السياق
+        content: `أنت خبير في لغة الإشارة العربية والإماراتية. ${langNote}
+مهمتك:
+1. إذا كان النص بلغة غير العربية، ترجمه للعربية أولاً
+2. حوّل النص إلى Sign Language Gloss (احذف حروف الجر والأدوات)
+3. رتّب: موضوع → فعل → مفعول
+4. حلل المشاعر والموضوعات
 
-أرجع JSON بهذه الحقول فقط:
-- gloss: النص المحوّل لغة إشارة
-- words_array: مصفوفة الكلمات الأساسية
-- sentiment: positive أو negative أو neutral
-- emotion: happy أو sad أو excited أو calm أو angry أو surprised
-- topics: المواضيع الرئيسية (مصفوفة)
-- sign_intensity: low أو medium أو high
-- summary_arabic: ملخص قصير للمحتوى`
+أرجع JSON:
+- gloss: النص بلغة الإشارة
+- words_array: مصفوفة الكلمات (max 15)
+- sentiment: positive/negative/neutral
+- emotion: happy/sad/excited/calm/angry/surprised
+- topics: المواضيع (مصفوفة)
+- sign_intensity: low/medium/high
+- summary_arabic: ملخص بالعربية`
       },
-      { role: 'user', content: `حوّل هذا النص إلى Sign Language Gloss: ${transcript}` }
+      { role: 'user', content: text }
     ],
     response_format: { type: 'json_object' },
     max_tokens: 1500,
     temperature: 0.3
   });
 
-  const raw = completion.choices[0].message.content;
-  return JSON.parse(raw);
+  return JSON.parse(completion.choices[0].message.content);
 }
 
-// Build final response object
-function buildResponse(transcript, gpt, videoUrl) {
-  const words = gpt.words_array || transcript.split(' ').slice(0, 10);
+// ── Build Response ───────────────────────────────────────────────
+function buildResponse(transcript, gpt, source) {
+  const words = gpt.words_array || transcript.split(' ').slice(0, 15);
   const speed = gpt.emotion === 'excited' ? 1.4 : gpt.emotion === 'sad' ? 0.85 : 1.0;
   return {
     success: true,
     job_id: 'job_' + Date.now(),
+    source,
     data: {
-      transcript,
+      transcript: transcript.substring(0, 500),
       sign_gloss: gpt.gloss || transcript,
       words_array: words,
       word_sequence: words.map((w, i) => ({ index: i, word: w, duration_ms: Math.max(500, w.length * 80), delay_ms: i * 600 })),
       sentiment: gpt.sentiment || 'neutral',
       emotion: gpt.emotion || 'calm',
       topics: gpt.topics || [],
-      summary_arabic: gpt.summary_arabic || transcript.substring(0, 100),
+      summary_arabic: gpt.summary_arabic || '',
       avatar_config: {
-        expression: gpt.emotion || 'calm',
-        speed,
+        expression: gpt.emotion || 'calm', speed,
         gesture_intensity: gpt.sign_intensity || 'medium',
         background_style: gpt.sentiment === 'positive' ? 'warm' : gpt.sentiment === 'negative' ? 'cool' : 'neutral'
       },
@@ -218,106 +217,63 @@ function buildResponse(transcript, gpt, videoUrl) {
   };
 }
 
-// Demo fallback
-function buildDemoResponse() {
-  const words = ['مرحبا', 'هذا', 'عرض', 'توضيحي', 'لغة', 'إشارة', 'عربية'];
-  return {
-    success: true, job_id: 'demo_' + Date.now(), demo_mode: true,
-    data: {
-      transcript: 'هذا مثال توضيحي — أضف مفاتيح API لتجربة الترجمة الحقيقية.',
-      sign_gloss: 'مثال توضيحي لغة إشارة عربية',
-      words_array: words,
-      word_sequence: words.map((w, i) => ({ index: i, word: w, duration_ms: 700, delay_ms: i * 700 })),
-      sentiment: 'neutral', emotion: 'calm', topics: ['تقنية', 'لغة إشارة'],
-      summary_arabic: 'عرض توضيحي لميزة تحويل الفيديو إلى لغة الإشارة',
-      avatar_config: { expression: 'calm', speed: 1.0, gesture_intensity: 'medium', background_style: 'neutral' },
-      total_words: words.length, estimated_duration_ms: words.length * 700,
-      created_at: new Date().toISOString()
-    }
-  };
-}
-
+// ── API ROUTE ────────────────────────────────────────────────────
 app.post('/api/sign-translate', async (req, res) => {
-  const errors = [];
   try {
-    const { video_url, platform, language } = req.body;
+    const { video_url } = req.body;
     if (!video_url) return res.status(400).json({ success: false, error: 'video_url مطلوب' });
+    if (!openai) return res.status(500).json({ success: false, error: 'OpenAI not configured' });
 
-    console.log(`🎬 Processing video: ${video_url}`);
-    console.log(`🔑 Keys: RapidAPI=${!!RAPIDAPI_KEY}, Deepgram=${!!DEEPGRAM_API_KEY}, OpenAI=${!!openai}`);
+    const videoId = extractYouTubeId(video_url);
+    if (!videoId) return res.status(400).json({ success: false, error: 'رابط YouTube غير صحيح' });
 
-    // Direct pipeline
-    if (!RAPIDAPI_KEY) errors.push('RAPIDAPI_KEY missing');
-    if (!DEEPGRAM_API_KEY) errors.push('DEEPGRAM_API_KEY missing');
-    if (!openai) errors.push('OpenAI not initialized');
+    console.log(`\n🎬 ═══ Processing: ${videoId} ═══`);
 
-    if (openai) {
-      // Step 1: Get audio URL or metadata
-      console.log('🎵 Step 1: Extracting audio...');
-      const audioSource = await getAudioUrl(video_url);
-      console.log(`✅ Source type: ${audioSource.type}`);
-      
-      let transcript = null;
-      
-      // Step 2: Transcribe (if we have audio URL)
-      if (audioSource.type === 'url' && DEEPGRAM_API_KEY) {
-        try {
-          console.log('🗣️ Step 2: Transcribing with Deepgram...');
-          transcript = await transcribeAudio(audioSource);
-          console.log(`📝 Transcript: ${transcript?.substring(0, 100)}...`);
-        } catch (e) {
-          console.log(`⚠️ Deepgram failed: ${e.message} — using metadata fallback`);
-        }
-      }
-      
-      // Step 3: Convert to sign language (with transcript OR metadata)
-      console.log('🧠 Step 3: Converting to sign gloss with GPT...');
-      let gptInput;
-      if (transcript) {
-        gptInput = transcript;
-      } else if (audioSource.type === 'metadata') {
-        gptInput = `[عنوان الفيديو: ${audioSource.title}] [القناة: ${audioSource.author}] — أنشئ محتوى تعليمي مناسب بلغة الإشارة العربية بناءً على عنوان هذا الفيديو`;
-      } else {
-        gptInput = 'مرحباً بكم في منصة إشارة للتواصل بلغة الإشارة العربية';
-      }
-      
-      const gptResult = await convertToSignGloss(gptInput);
-      const response = buildResponse(gptInput, gptResult, video_url);
-      
-      // Mark if this was metadata-based (not real transcription)
-      if (!transcript) {
-        response.data.source = 'metadata';
-        response.data.note = 'تم التحليل من عنوان الفيديو — لم يتم استخراج الصوت';
-      }
-      
-      console.log('✅ Pipeline success!');
-      return res.json(response);
+    let transcript = null;
+    let source = 'unknown';
+    let lang = 'ar';
+
+    // 1. YouTube Transcript (FREE)
+    const ytResult = await getYouTubeTranscript(videoId);
+    if (ytResult) { transcript = ytResult.text; source = 'youtube_transcript'; lang = ytResult.lang; }
+
+    // 2. Whisper (CHEAP)
+    if (!transcript) {
+      transcript = await whisperTranscribe(videoId);
+      if (transcript) { source = 'whisper'; lang = 'ar'; }
     }
 
-    // If keys missing, return error details
-    console.log('⚠️ Missing API keys:', errors.join(', '));
-    return res.json({ ...buildDemoResponse(), pipeline_errors: errors });
+    // 3. Metadata (FREE, last resort)
+    if (!transcript) {
+      const meta = await getVideoMetadata(videoId);
+      transcript = `عنوان الفيديو: ${meta.title}. القناة: ${meta.author}. أنشئ محتوى لغة إشارة مناسباً.`;
+      source = 'metadata';
+    }
+
+    console.log(`📊 Source: ${source} | Lang: ${lang}`);
+
+    // Convert to Sign Language
+    console.log('🧠 GPT: Converting to Sign Language...');
+    const gptResult = await convertToSignGloss(transcript, lang);
+    const response = buildResponse(transcript, gptResult, source);
+
+    console.log(`✅ ═══ Done! ${response.data.words_array.length} words ═══\n`);
+    return res.json(response);
 
   } catch (error) {
-    console.error('❌ Pipeline error:', error?.message, error?.stack);
-    // Return the ACTUAL error so we can debug
-    return res.json({
-      ...buildDemoResponse(),
-      pipeline_error: error?.message || 'Unknown error',
-      pipeline_step: error?.message?.includes('YouTube') ? 'extract_audio' : 
-                     error?.message?.includes('Deepgram') ? 'transcribe' :
-                     error?.message?.includes('OpenAI') ? 'gpt' : 'unknown'
-    });
+    console.error('❌ Pipeline error:', error?.message);
+    return res.status(500).json({ success: false, error: error?.message });
   }
 });
-// ─────────────────────────────────────────────────────────────────
 
-
+// ══════════════════════════════════════════════════════════════════
+// ██  SOCKET.IO (Video Call)  █████████████████████████████████████
+// ══════════════════════════════════════════════════════════════════
 
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", // Allow all origins for Socket.io to fix CORS issues
+    origin: "*",
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -325,7 +281,7 @@ const io = new Server(server, {
 
 const users = new Map();
 const rooms = new Map();
-let matchingQueue = []; // For random 1-on-1 chat
+let matchingQueue = [];
 
 io.on('connection', (socket) => {
   socket.on('user:register', (data) => {
@@ -373,7 +329,6 @@ io.on('connection', (socket) => {
         type: 'sign'
       };
 
-      // Emit to everyone in the room (including sender)
       io.to(roomId).emit('ai:result', payload);
       
     } catch (error) {
@@ -389,7 +344,6 @@ io.on('connection', (socket) => {
       const partnerId = matchingQueue.shift();
       const roomId = uuidv4().substring(0, 8);
       
-      // Tell both users to join this room
       io.to(socket.id).emit('match:found', { roomId, partnerId });
       io.to(partnerId).emit('match:found', { roomId, partnerId: socket.id });
     } else {
