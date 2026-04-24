@@ -22,9 +22,45 @@ if (process.env.OPENAI_API_KEY) {
 }
 
 app.use(cors({
-  origin: true, // Allow all origins for easier debugging, or specify your vercel URL
+  origin: true,
   credentials: true
 }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// ── n8n Sign Language Proxy ──────────────────────────────────────
+const N8N_WEBHOOK = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/webhook/video-to-sign-language';
+
+app.post('/api/sign-translate', async (req, res) => {
+  try {
+    const { video_url, platform, language } = req.body;
+    if (!video_url) return res.status(400).json({ success: false, error: 'video_url مطلوب' });
+
+    // Call n8n webhook
+    const n8nRes = await fetch(N8N_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ video_url, platform: platform || 'youtube', language: language || 'ar' }),
+      signal: AbortSignal.timeout(60000)
+    });
+
+    if (!n8nRes.ok) {
+      const errText = await n8nRes.text().catch(() => 'Unknown error');
+      return res.status(n8nRes.status).json({ success: false, error: `n8n error: ${errText}` });
+    }
+
+    const data = await n8nRes.json();
+    res.json(data);
+  } catch (error) {
+    console.error('n8n proxy error:', error?.message);
+    res.status(500).json({
+      success: false,
+      error: 'تعذر الاتصال بخط أنابيب n8n. تأكد من تشغيل n8n وإعداد مفاتيح API.',
+      details: error?.message
+    });
+  }
+});
+// ─────────────────────────────────────────────────────────────────
 
 const server = http.createServer(app);
 const io = new Server(server, {
