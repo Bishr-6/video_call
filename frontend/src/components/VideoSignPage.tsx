@@ -182,21 +182,40 @@ export default function VideoSignPage() {
       }
 
       const rawUrl = (import.meta as any).env?.VITE_SERVER_URL || 'http://localhost:5000'
-      // Ensure URL has a protocol prefix (Vercel env var might be missing https://)
       const serverUrl = rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`
+      console.log('🔗 Server URL:', serverUrl)
+      console.log('🎬 Sending video:', videoUrl.trim())
+      
       const response = await fetch(`${serverUrl}/api/sign-translate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ video_url: videoUrl.trim(), platform, language: 'ar' }),
-        signal: AbortSignal.timeout(30000)
+        signal: AbortSignal.timeout(120000) // 2 minutes for full pipeline
       })
 
-      const data: SignResult = await response.json()
+      console.log('📡 Response status:', response.status)
+      const data: any = await response.json()
+      console.log('📦 Full API Response:', JSON.stringify(data, null, 2))
+      
+      // Check for pipeline errors
+      if (data.pipeline_error) {
+        console.error('❌ Pipeline Error:', data.pipeline_error)
+        console.error('❌ Failed Step:', data.pipeline_step)
+      }
+      if (data.pipeline_errors) {
+        console.error('❌ Missing Keys:', data.pipeline_errors)
+      }
+      if (data.demo_mode) {
+        console.warn('⚠️ DEMO MODE - Backend returned demo data, not real translation')
+        console.warn('⚠️ This means the pipeline failed. Check pipeline_error above.')
+      }
+      
       if (!data.success) throw new Error(data.error || 'فشلت المعالجة')
       setResult(data)
       setStage('done')
-      setIsDemoMode(false)
+      setIsDemoMode(!!data.demo_mode)
     } catch (err: any) {
+      console.error('❌ Fetch error:', err.message)
       // Try demo mode as fallback
       setResult(MOCK_RESULT)
       setStage('done')
