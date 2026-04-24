@@ -5,6 +5,7 @@ import cors from 'cors';
 import { v4 as uuidv4 } from 'uuid';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
+import ytdl from '@distube/ytdl-core';
 
 dotenv.config();
 
@@ -60,23 +61,57 @@ function extractYouTubeId(url) {
   return null;
 }
 
-// Step 1: Get audio URL via RapidAPI
+// Step 1: Get audio URL (ytdl-core primary, RapidAPI fallback)
 async function getAudioUrl(videoUrl) {
   const videoId = extractYouTubeId(videoUrl);
   if (!videoId) throw new Error('رابط YouTube غير صحيح');
 
-  const res = await fetch(`https://youtube-mp36.p.rapidapi.com/dl?id=${videoId}`, {
-    method: 'GET',
-    headers: {
-      'X-RapidAPI-Key': RAPIDAPI_KEY,
-      'X-RapidAPI-Host': 'youtube-mp36.p.rapidapi.com'
-    },
-    signal: AbortSignal.timeout(30000)
-  });
-  if (!res.ok) throw new Error(`RapidAPI error: ${res.status}`);
-  const data = await res.json();
-  if (!data.link) throw new Error('لم يتم استخراج رابط الصوت');
-  return data.link;
+  const fullUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+  // Method 1: ytdl-core (free, no API key needed)
+  try {
+    console.log('  📦 Trying ytdl-core...');
+    const info = await ytdl.getInfo(fullUrl);
+    // Get audio-only format
+    const audioFormats = ytdl.filterFormats(info.formats, 'audioonly');
+    if (audioFormats.length > 0) {
+      // Pick best audio quality
+      const best = audioFormats.sort((a, b) => (b.audioBitrate || 0) - (a.audioBitrate || 0))[0];
+      console.log(`  ✅ ytdl-core: found audio (${best.audioBitrate}kbps, ${best.container})`);
+      return best.url;
+    }
+    // If no audio-only, try any format with audio
+    const withAudio = info.formats.filter(f => f.hasAudio);
+    if (withAudio.length > 0) {
+      console.log('  ✅ ytdl-core: using video+audio format');
+      return withAudio[0].url;
+    }
+  } catch (e) {
+    console.log(`  ❌ ytdl-core failed: ${e.message}`);
+  }
+
+  // Method 2: RapidAPI fallback
+  if (RAPIDAPI_KEY) {
+    try {
+      console.log('  📦 Trying RapidAPI...');
+      const res = await fetch(`https://youtube-mp36.p.rapidapi.com/dl?id=${videoId}`, {
+        method: 'GET',
+        headers: { 'X-RapidAPI-Key': RAPIDAPI_KEY, 'X-RapidAPI-Host': 'youtube-mp36.p.rapidapi.com' },
+        signal: AbortSignal.timeout(15000)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.link) {
+          console.log('  ✅ RapidAPI: got audio link');
+          return data.link;
+        }
+      }
+    } catch (e) {
+      console.log(`  ❌ RapidAPI failed: ${e.message}`);
+    }
+  }
+
+  throw new Error('فشل استخراج الصوت من الفيديو — جرّب رابط YouTube مختلف');
 }
 
 // Step 2: Transcribe audio with Deepgram
