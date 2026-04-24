@@ -28,13 +28,51 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// ── Health Check ─────────────────────────────────────────────────
+app.get('/', (req, res) => res.json({ status: 'ok', service: 'Eshara Backend', version: '1.0.0' }));
+app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+
 // ── n8n Sign Language Proxy ──────────────────────────────────────
 const N8N_WEBHOOK = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/webhook/video-to-sign-language';
+
+// Demo response when n8n is not available
+function buildDemoResponse(video_url) {
+  const jobId = 'demo_' + Date.now();
+  const words = ['مرحبا', 'هذا', 'عرض', 'توضيحي', 'لغة', 'إشارة', 'عربية'];
+  return {
+    success: true,
+    job_id: jobId,
+    demo_mode: true,
+    data: {
+      transcript: 'هذا مثال توضيحي — قم بتشغيل n8n محلياً أو على السحابة للحصول على الترجمة الحقيقية.',
+      sign_gloss: 'مثال توضيحي لغة إشارة عربية',
+      words_array: words,
+      word_sequence: words.map((w, i) => ({ index: i, word: w, duration_ms: 700, delay_ms: i * 700 })),
+      sentiment: 'neutral',
+      emotion: 'calm',
+      topics: ['تقنية', 'لغة إشارة'],
+      summary_arabic: 'عرض توضيحي لميزة تحويل الفيديو إلى لغة الإشارة',
+      avatar_config: { expression: 'calm', speed: 1.0, gesture_intensity: 'medium', background_style: 'neutral' },
+      total_words: words.length,
+      estimated_duration_ms: words.length * 700,
+      created_at: new Date().toISOString()
+    }
+  };
+}
 
 app.post('/api/sign-translate', async (req, res) => {
   try {
     const { video_url, platform, language } = req.body;
     if (!video_url) return res.status(400).json({ success: false, error: 'video_url مطلوب' });
+
+    // If n8n is localhost (production environment), return demo
+    const isProduction = process.env.NODE_ENV === 'production';
+    const isLocalN8n = N8N_WEBHOOK.includes('localhost') || N8N_WEBHOOK.includes('127.0.0.1');
+    
+    if (isProduction && isLocalN8n) {
+      console.log('⚠️ n8n not configured for production - returning demo response');
+      return res.json(buildDemoResponse(video_url));
+    }
 
     // Call n8n webhook
     const n8nRes = await fetch(N8N_WEBHOOK, {
@@ -46,21 +84,21 @@ app.post('/api/sign-translate', async (req, res) => {
 
     if (!n8nRes.ok) {
       const errText = await n8nRes.text().catch(() => 'Unknown error');
-      return res.status(n8nRes.status).json({ success: false, error: `n8n error: ${errText}` });
+      console.error('n8n error:', errText);
+      // Fallback to demo instead of error
+      return res.json(buildDemoResponse(video_url));
     }
 
     const data = await n8nRes.json();
     res.json(data);
   } catch (error) {
     console.error('n8n proxy error:', error?.message);
-    res.status(500).json({
-      success: false,
-      error: 'تعذر الاتصال بخط أنابيب n8n. تأكد من تشغيل n8n وإعداد مفاتيح API.',
-      details: error?.message
-    });
+    // Fallback to demo instead of 500 error
+    res.json(buildDemoResponse(req.body?.video_url || ''));
   }
 });
 // ─────────────────────────────────────────────────────────────────
+
 
 const server = http.createServer(app);
 const io = new Server(server, {
