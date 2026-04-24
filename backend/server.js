@@ -61,39 +61,36 @@ function extractYouTubeId(url) {
   return null;
 }
 
-// Step 1: Get audio URL (ytdl-core primary, RapidAPI fallback)
+// Step 1: Get audio URL (multiple methods)
 async function getAudioUrl(videoUrl) {
   const videoId = extractYouTubeId(videoUrl);
   if (!videoId) throw new Error('رابط YouTube غير صحيح');
 
   const fullUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
-  // Method 1: ytdl-core (free, no API key needed)
+  // Method 1: ytdl-core
   try {
-    console.log('  📦 Trying ytdl-core...');
+    console.log('  📦 Method 1: ytdl-core...');
     const info = await ytdl.getInfo(fullUrl);
-    // Get audio-only format
     const audioFormats = ytdl.filterFormats(info.formats, 'audioonly');
     if (audioFormats.length > 0) {
-      // Pick best audio quality
       const best = audioFormats.sort((a, b) => (b.audioBitrate || 0) - (a.audioBitrate || 0))[0];
-      console.log(`  ✅ ytdl-core: found audio (${best.audioBitrate}kbps, ${best.container})`);
-      return best.url;
+      console.log(`  ✅ ytdl-core: audio found (${best.audioBitrate}kbps)`);
+      return { type: 'url', url: best.url };
     }
-    // If no audio-only, try any format with audio
     const withAudio = info.formats.filter(f => f.hasAudio);
     if (withAudio.length > 0) {
-      console.log('  ✅ ytdl-core: using video+audio format');
-      return withAudio[0].url;
+      console.log('  ✅ ytdl-core: video+audio format');
+      return { type: 'url', url: withAudio[0].url };
     }
   } catch (e) {
-    console.log(`  ❌ ytdl-core failed: ${e.message}`);
+    console.log(`  ❌ ytdl-core: ${e.message?.substring(0, 100)}`);
   }
 
-  // Method 2: RapidAPI fallback
+  // Method 2: RapidAPI
   if (RAPIDAPI_KEY) {
     try {
-      console.log('  📦 Trying RapidAPI...');
+      console.log('  📦 Method 2: RapidAPI...');
       const res = await fetch(`https://youtube-mp36.p.rapidapi.com/dl?id=${videoId}`, {
         method: 'GET',
         headers: { 'X-RapidAPI-Key': RAPIDAPI_KEY, 'X-RapidAPI-Host': 'youtube-mp36.p.rapidapi.com' },
@@ -102,30 +99,54 @@ async function getAudioUrl(videoUrl) {
       if (res.ok) {
         const data = await res.json();
         if (data.link) {
-          console.log('  ✅ RapidAPI: got audio link');
-          return data.link;
+          console.log('  ✅ RapidAPI: got link');
+          return { type: 'url', url: data.link };
         }
       }
     } catch (e) {
-      console.log(`  ❌ RapidAPI failed: ${e.message}`);
+      console.log(`  ❌ RapidAPI: ${e.message?.substring(0, 100)}`);
     }
   }
 
-  throw new Error('فشل استخراج الصوت من الفيديو — جرّب رابط YouTube مختلف');
+  // Method 3: Get video metadata for GPT-based translation (no audio needed)
+  console.log('  📦 Method 3: Fetching video metadata for GPT fallback...');
+  try {
+    const metaRes = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(fullUrl)}`, {
+      signal: AbortSignal.timeout(10000)
+    });
+    if (metaRes.ok) {
+      const meta = await metaRes.json();
+      console.log(`  ✅ Got metadata: "${meta.title}"`);
+      return { type: 'metadata', title: meta.title || '', author: meta.author_name || '' };
+    }
+  } catch (e) {
+    console.log(`  ❌ Metadata: ${e.message}`);
+  }
+
+  return { type: 'metadata', title: 'فيديو YouTube', author: '' };
 }
 
 // Step 2: Transcribe audio with Deepgram
-async function transcribeAudio(audioUrl) {
+async function transcribeAudio(audioSource) {
+  // If we only have metadata (no audio URL), skip transcription
+  if (audioSource.type === 'metadata') {
+    console.log('  ⚠️ No audio URL - using metadata for GPT');
+    return null; // Will be handled by convertToSignGloss
+  }
+
   const res = await fetch('https://api.deepgram.com/v1/listen?model=nova-2&language=ar&smart_format=true&punctuate=true', {
     method: 'POST',
     headers: {
       'Authorization': `Token ${DEEPGRAM_API_KEY}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ url: audioUrl }),
+    body: JSON.stringify({ url: audioSource.url }),
     signal: AbortSignal.timeout(60000)
   });
-  if (!res.ok) throw new Error(`Deepgram error: ${res.status}`);
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    throw new Error(`Deepgram error: ${res.status} - ${errBody.substring(0, 200)}`);
+  }
   const data = await res.json();
   const transcript = data?.results?.channels?.[0]?.alternatives?.[0]?.transcript || '';
   if (!transcript) throw new Error('لم يتم التعرف على الكلام في الفيديو');
@@ -230,23 +251,46 @@ app.post('/api/sign-translate', async (req, res) => {
     if (!DEEPGRAM_API_KEY) errors.push('DEEPGRAM_API_KEY missing');
     if (!openai) errors.push('OpenAI not initialized');
 
-    if (RAPIDAPI_KEY && DEEPGRAM_API_KEY && openai) {
-      // Step 1: Get audio URL
+    if (openai) {
+      // Step 1: Get audio URL or metadata
       console.log('🎵 Step 1: Extracting audio...');
-      const audioUrl = await getAudioUrl(video_url);
-      console.log('✅ Audio URL:', audioUrl?.substring(0, 80));
+      const audioSource = await getAudioUrl(video_url);
+      console.log(`✅ Source type: ${audioSource.type}`);
       
-      // Step 2: Transcribe
-      console.log('🗣️ Step 2: Transcribing with Deepgram...');
-      const transcript = await transcribeAudio(audioUrl);
-      console.log(`📝 Transcript: ${transcript.substring(0, 100)}...`);
+      let transcript = null;
       
-      // Step 3: Convert to sign language
+      // Step 2: Transcribe (if we have audio URL)
+      if (audioSource.type === 'url' && DEEPGRAM_API_KEY) {
+        try {
+          console.log('🗣️ Step 2: Transcribing with Deepgram...');
+          transcript = await transcribeAudio(audioSource);
+          console.log(`📝 Transcript: ${transcript?.substring(0, 100)}...`);
+        } catch (e) {
+          console.log(`⚠️ Deepgram failed: ${e.message} — using metadata fallback`);
+        }
+      }
+      
+      // Step 3: Convert to sign language (with transcript OR metadata)
       console.log('🧠 Step 3: Converting to sign gloss with GPT...');
-      const gptResult = await convertToSignGloss(transcript);
+      let gptInput;
+      if (transcript) {
+        gptInput = transcript;
+      } else if (audioSource.type === 'metadata') {
+        gptInput = `[عنوان الفيديو: ${audioSource.title}] [القناة: ${audioSource.author}] — أنشئ محتوى تعليمي مناسب بلغة الإشارة العربية بناءً على عنوان هذا الفيديو`;
+      } else {
+        gptInput = 'مرحباً بكم في منصة إشارة للتواصل بلغة الإشارة العربية';
+      }
       
-      const response = buildResponse(transcript, gptResult, video_url);
-      console.log('✅ Direct pipeline success!');
+      const gptResult = await convertToSignGloss(gptInput);
+      const response = buildResponse(gptInput, gptResult, video_url);
+      
+      // Mark if this was metadata-based (not real transcription)
+      if (!transcript) {
+        response.data.source = 'metadata';
+        response.data.note = 'تم التحليل من عنوان الفيديو — لم يتم استخراج الصوت';
+      }
+      
+      console.log('✅ Pipeline success!');
       return res.json(response);
     }
 
