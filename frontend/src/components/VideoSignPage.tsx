@@ -181,7 +181,9 @@ export default function VideoSignPage() {
         await new Promise(r => setTimeout(r, 600))
       }
 
-      const serverUrl = (import.meta as any).env?.VITE_SERVER_URL || 'http://localhost:5000'
+      const rawUrl = (import.meta as any).env?.VITE_SERVER_URL || 'http://localhost:5000'
+      // Ensure URL has a protocol prefix (Vercel env var might be missing https://)
+      const serverUrl = rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`
       const response = await fetch(`${serverUrl}/api/sign-translate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
