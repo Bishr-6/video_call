@@ -29,8 +29,17 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // ── Health Check ─────────────────────────────────────────────────
-app.get('/', (req, res) => res.json({ status: 'ok', service: 'Eshara Backend', version: '1.0.0' }));
+app.get('/', (req, res) => res.json({ status: 'ok', service: 'Eshara Backend', version: '2.0.0' }));
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+app.get('/debug', (req, res) => res.json({
+  version: '2.0.0',
+  openai_ready: !!openai,
+  rapidapi_key_set: !!process.env.RAPIDAPI_KEY,
+  deepgram_key_set: !!process.env.DEEPGRAM_API_KEY,
+  n8n_webhook: process.env.N8N_WEBHOOK_URL ? 'set' : 'not set',
+  node_env: process.env.NODE_ENV || 'not set',
+  pipeline_mode: (!!process.env.RAPIDAPI_KEY && !!process.env.DEEPGRAM_API_KEY && !!openai) ? 'DIRECT' : 'DEMO'
+}));
 
 // ── Sign Language Pipeline (Direct - No n8n needed) ─────────────
 
