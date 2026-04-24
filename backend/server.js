@@ -32,29 +32,141 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/', (req, res) => res.json({ status: 'ok', service: 'Eshara Backend', version: '1.0.0' }));
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
-// ── n8n Sign Language Proxy ──────────────────────────────────────
-const N8N_WEBHOOK = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/webhook/video-to-sign-language';
+// ── Sign Language Pipeline (Direct - No n8n needed) ─────────────
 
-// Demo response when n8n is not available
-function buildDemoResponse(video_url) {
-  const jobId = 'demo_' + Date.now();
-  const words = ['مرحبا', 'هذا', 'عرض', 'توضيحي', 'لغة', 'إشارة', 'عربية'];
+const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || '';
+const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY || '';
+const N8N_WEBHOOK = process.env.N8N_WEBHOOK_URL || '';
+
+// Extract YouTube video ID from URL
+function extractYouTubeId(url) {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([^&\n?#]+)/,
+    /youtube\.com\/embed\/([^&\n?#]+)/
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+// Step 1: Get audio URL via RapidAPI
+async function getAudioUrl(videoUrl) {
+  const videoId = extractYouTubeId(videoUrl);
+  if (!videoId) throw new Error('رابط YouTube غير صحيح');
+
+  const res = await fetch(`https://youtube-mp36.p.rapidapi.com/dl?id=${videoId}`, {
+    method: 'GET',
+    headers: {
+      'X-RapidAPI-Key': RAPIDAPI_KEY,
+      'X-RapidAPI-Host': 'youtube-mp36.p.rapidapi.com'
+    },
+    signal: AbortSignal.timeout(30000)
+  });
+  if (!res.ok) throw new Error(`RapidAPI error: ${res.status}`);
+  const data = await res.json();
+  if (!data.link) throw new Error('لم يتم استخراج رابط الصوت');
+  return data.link;
+}
+
+// Step 2: Transcribe audio with Deepgram
+async function transcribeAudio(audioUrl) {
+  const res = await fetch('https://api.deepgram.com/v1/listen?model=nova-2&language=ar&smart_format=true&punctuate=true', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Token ${DEEPGRAM_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ url: audioUrl }),
+    signal: AbortSignal.timeout(60000)
+  });
+  if (!res.ok) throw new Error(`Deepgram error: ${res.status}`);
+  const data = await res.json();
+  const transcript = data?.results?.channels?.[0]?.alternatives?.[0]?.transcript || '';
+  if (!transcript) throw new Error('لم يتم التعرف على الكلام في الفيديو');
+  return transcript;
+}
+
+// Step 3: Convert to Sign Language Gloss via OpenAI
+async function convertToSignGloss(transcript) {
+  if (!openai) throw new Error('OpenAI غير متاح');
+
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      {
+        role: 'system',
+        content: `أنت خبير متخصص في لغة الإشارة الإماراتية والعربية. مهمتك تحويل النصوص العربية إلى Sign Language Gloss.
+اتبع هذه القواعد:
+1. احذف: الحروف الجر (في، على، من، إلى)، الضمائر غير الضرورية، أدوات التعريف
+2. أعد ترتيب الكلمات: الموضوع → الفعل → المفعول
+3. استخدم المفرد بدل الجمع عند الإمكان
+4. حلل المشاعر من السياق
+
+أرجع JSON بهذه الحقول فقط:
+- gloss: النص المحوّل لغة إشارة
+- words_array: مصفوفة الكلمات الأساسية
+- sentiment: positive أو negative أو neutral
+- emotion: happy أو sad أو excited أو calm أو angry أو surprised
+- topics: المواضيع الرئيسية (مصفوفة)
+- sign_intensity: low أو medium أو high
+- summary_arabic: ملخص قصير للمحتوى`
+      },
+      { role: 'user', content: `حوّل هذا النص إلى Sign Language Gloss: ${transcript}` }
+    ],
+    response_format: { type: 'json_object' },
+    max_tokens: 1500,
+    temperature: 0.3
+  });
+
+  const raw = completion.choices[0].message.content;
+  return JSON.parse(raw);
+}
+
+// Build final response object
+function buildResponse(transcript, gpt, videoUrl) {
+  const words = gpt.words_array || transcript.split(' ').slice(0, 10);
+  const speed = gpt.emotion === 'excited' ? 1.4 : gpt.emotion === 'sad' ? 0.85 : 1.0;
   return {
     success: true,
-    job_id: jobId,
-    demo_mode: true,
+    job_id: 'job_' + Date.now(),
     data: {
-      transcript: 'هذا مثال توضيحي — قم بتشغيل n8n محلياً أو على السحابة للحصول على الترجمة الحقيقية.',
+      transcript,
+      sign_gloss: gpt.gloss || transcript,
+      words_array: words,
+      word_sequence: words.map((w, i) => ({ index: i, word: w, duration_ms: Math.max(500, w.length * 80), delay_ms: i * 600 })),
+      sentiment: gpt.sentiment || 'neutral',
+      emotion: gpt.emotion || 'calm',
+      topics: gpt.topics || [],
+      summary_arabic: gpt.summary_arabic || transcript.substring(0, 100),
+      avatar_config: {
+        expression: gpt.emotion || 'calm',
+        speed,
+        gesture_intensity: gpt.sign_intensity || 'medium',
+        background_style: gpt.sentiment === 'positive' ? 'warm' : gpt.sentiment === 'negative' ? 'cool' : 'neutral'
+      },
+      total_words: words.length,
+      estimated_duration_ms: words.length * 600,
+      created_at: new Date().toISOString()
+    }
+  };
+}
+
+// Demo fallback
+function buildDemoResponse() {
+  const words = ['مرحبا', 'هذا', 'عرض', 'توضيحي', 'لغة', 'إشارة', 'عربية'];
+  return {
+    success: true, job_id: 'demo_' + Date.now(), demo_mode: true,
+    data: {
+      transcript: 'هذا مثال توضيحي — أضف مفاتيح API لتجربة الترجمة الحقيقية.',
       sign_gloss: 'مثال توضيحي لغة إشارة عربية',
       words_array: words,
       word_sequence: words.map((w, i) => ({ index: i, word: w, duration_ms: 700, delay_ms: i * 700 })),
-      sentiment: 'neutral',
-      emotion: 'calm',
-      topics: ['تقنية', 'لغة إشارة'],
+      sentiment: 'neutral', emotion: 'calm', topics: ['تقنية', 'لغة إشارة'],
       summary_arabic: 'عرض توضيحي لميزة تحويل الفيديو إلى لغة الإشارة',
       avatar_config: { expression: 'calm', speed: 1.0, gesture_intensity: 'medium', background_style: 'neutral' },
-      total_words: words.length,
-      estimated_duration_ms: words.length * 700,
+      total_words: words.length, estimated_duration_ms: words.length * 700,
       created_at: new Date().toISOString()
     }
   };
@@ -65,39 +177,61 @@ app.post('/api/sign-translate', async (req, res) => {
     const { video_url, platform, language } = req.body;
     if (!video_url) return res.status(400).json({ success: false, error: 'video_url مطلوب' });
 
-    // If n8n is localhost (production environment), return demo
-    const isProduction = process.env.NODE_ENV === 'production';
-    const isLocalN8n = N8N_WEBHOOK.includes('localhost') || N8N_WEBHOOK.includes('127.0.0.1');
-    
-    if (isProduction && isLocalN8n) {
-      console.log('⚠️ n8n not configured for production - returning demo response');
-      return res.json(buildDemoResponse(video_url));
+    console.log(`🎬 Processing video: ${video_url}`);
+
+    // Try n8n first if it's a cloud URL
+    if (N8N_WEBHOOK && !N8N_WEBHOOK.includes('localhost') && !N8N_WEBHOOK.includes('127.0.0.1')) {
+      try {
+        const n8nRes = await fetch(N8N_WEBHOOK, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ video_url, platform: platform || 'youtube', language: language || 'ar' }),
+          signal: AbortSignal.timeout(60000)
+        });
+        if (n8nRes.ok) {
+          const data = await n8nRes.json();
+          console.log('✅ n8n pipeline success');
+          return res.json(data);
+        }
+      } catch (e) {
+        console.warn('⚠️ n8n failed, falling back to direct pipeline:', e.message);
+      }
     }
 
-    // Call n8n webhook
-    const n8nRes = await fetch(N8N_WEBHOOK, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ video_url, platform: platform || 'youtube', language: language || 'ar' }),
-      signal: AbortSignal.timeout(60000)
-    });
-
-    if (!n8nRes.ok) {
-      const errText = await n8nRes.text().catch(() => 'Unknown error');
-      console.error('n8n error:', errText);
-      // Fallback to demo instead of error
-      return res.json(buildDemoResponse(video_url));
+    // Direct pipeline (no n8n needed)
+    if (RAPIDAPI_KEY && DEEPGRAM_API_KEY && openai) {
+      console.log('🔄 Using direct pipeline...');
+      
+      // Step 1: Get audio URL
+      console.log('🎵 Step 1: Extracting audio...');
+      const audioUrl = await getAudioUrl(video_url);
+      
+      // Step 2: Transcribe
+      console.log('🗣️ Step 2: Transcribing with Deepgram...');
+      const transcript = await transcribeAudio(audioUrl);
+      console.log(`📝 Transcript: ${transcript.substring(0, 100)}...`);
+      
+      // Step 3: Convert to sign language
+      console.log('🧠 Step 3: Converting to sign gloss with GPT...');
+      const gptResult = await convertToSignGloss(transcript);
+      
+      const response = buildResponse(transcript, gptResult, video_url);
+      console.log('✅ Direct pipeline success!');
+      return res.json(response);
     }
 
-    const data = await n8nRes.json();
-    res.json(data);
+    // Fallback to demo
+    console.log('⚠️ Missing API keys - returning demo response');
+    res.json(buildDemoResponse());
+
   } catch (error) {
-    console.error('n8n proxy error:', error?.message);
-    // Fallback to demo instead of 500 error
-    res.json(buildDemoResponse(req.body?.video_url || ''));
+    console.error('❌ Pipeline error:', error?.message);
+    // Return demo on any error
+    res.json({ ...buildDemoResponse(), error_detail: error?.message });
   }
 });
 // ─────────────────────────────────────────────────────────────────
+
 
 
 const server = http.createServer(app);
