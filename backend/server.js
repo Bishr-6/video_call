@@ -182,38 +182,24 @@ function buildDemoResponse() {
 }
 
 app.post('/api/sign-translate', async (req, res) => {
+  const errors = [];
   try {
     const { video_url, platform, language } = req.body;
     if (!video_url) return res.status(400).json({ success: false, error: 'video_url مطلوب' });
 
     console.log(`🎬 Processing video: ${video_url}`);
+    console.log(`🔑 Keys: RapidAPI=${!!RAPIDAPI_KEY}, Deepgram=${!!DEEPGRAM_API_KEY}, OpenAI=${!!openai}`);
 
-    // Try n8n first if it's a cloud URL
-    if (N8N_WEBHOOK && !N8N_WEBHOOK.includes('localhost') && !N8N_WEBHOOK.includes('127.0.0.1')) {
-      try {
-        const n8nRes = await fetch(N8N_WEBHOOK, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ video_url, platform: platform || 'youtube', language: language || 'ar' }),
-          signal: AbortSignal.timeout(60000)
-        });
-        if (n8nRes.ok) {
-          const data = await n8nRes.json();
-          console.log('✅ n8n pipeline success');
-          return res.json(data);
-        }
-      } catch (e) {
-        console.warn('⚠️ n8n failed, falling back to direct pipeline:', e.message);
-      }
-    }
+    // Direct pipeline
+    if (!RAPIDAPI_KEY) errors.push('RAPIDAPI_KEY missing');
+    if (!DEEPGRAM_API_KEY) errors.push('DEEPGRAM_API_KEY missing');
+    if (!openai) errors.push('OpenAI not initialized');
 
-    // Direct pipeline (no n8n needed)
     if (RAPIDAPI_KEY && DEEPGRAM_API_KEY && openai) {
-      console.log('🔄 Using direct pipeline...');
-      
       // Step 1: Get audio URL
       console.log('🎵 Step 1: Extracting audio...');
       const audioUrl = await getAudioUrl(video_url);
+      console.log('✅ Audio URL:', audioUrl?.substring(0, 80));
       
       // Step 2: Transcribe
       console.log('🗣️ Step 2: Transcribing with Deepgram...');
@@ -229,14 +215,20 @@ app.post('/api/sign-translate', async (req, res) => {
       return res.json(response);
     }
 
-    // Fallback to demo
-    console.log('⚠️ Missing API keys - returning demo response');
-    res.json(buildDemoResponse());
+    // If keys missing, return error details
+    console.log('⚠️ Missing API keys:', errors.join(', '));
+    return res.json({ ...buildDemoResponse(), pipeline_errors: errors });
 
   } catch (error) {
-    console.error('❌ Pipeline error:', error?.message);
-    // Return demo on any error
-    res.json({ ...buildDemoResponse(), error_detail: error?.message });
+    console.error('❌ Pipeline error:', error?.message, error?.stack);
+    // Return the ACTUAL error so we can debug
+    return res.json({
+      ...buildDemoResponse(),
+      pipeline_error: error?.message || 'Unknown error',
+      pipeline_step: error?.message?.includes('YouTube') ? 'extract_audio' : 
+                     error?.message?.includes('Deepgram') ? 'transcribe' :
+                     error?.message?.includes('OpenAI') ? 'gpt' : 'unknown'
+    });
   }
 });
 // ─────────────────────────────────────────────────────────────────
