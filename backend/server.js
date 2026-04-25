@@ -143,7 +143,33 @@ const SOURCES_CATALOG = {
 
 function buildSourcesList() {
   const { cfg } = getDatasetsConfig();
-  const datasets = Array.isArray(cfg?.datasets) ? cfg.datasets : [];
+  const datasets = Array.isArray(cfg?.datasets) ? cfg.datasets : null;
+
+  // Fallback: if ml_pipeline/ isn't deployed (Railway root=backend), still return sources
+  if (!datasets) {
+    const fallbackType = (name) => {
+      if (name === 'KArSL' || name === 'ArabSign') return 'skeleton';
+      if (name === 'ArASL2018' || name === 'ArYSL' || name === 'AASL') return 'images';
+      return 'unknown';
+    };
+    return Object.entries(SOURCES_CATALOG).map(([name, extra]) => {
+      const type = fallbackType(name);
+      return {
+        name,
+        description: '',
+        type,
+        priority: null,
+        enabled: false,
+        input_dir: '',
+        link: extra.link ?? null,
+        formats: extra.formats ?? [],
+        note: extra.note ?? null,
+        requires_landmarks: type === 'images' || type === 'videos',
+        has_skeleton: type === 'skeleton',
+      };
+    });
+  }
+
   return datasets.map((d) => {
     const extra = SOURCES_CATALOG[d.name] || {};
     return {
@@ -176,17 +202,11 @@ app.get('/debug', (req, res) => res.json({
 // Sources registry for frontend pages
 app.get('/api/sources', (req, res) => {
   const { cfgPath, cfg } = getDatasetsConfig();
-  if (!cfg) {
-    return res.status(500).json({
-      success: false,
-      error: 'datasets_config.json غير موجود أو غير صالح',
-      cfg_path: cfgPath,
-    });
-  }
   return res.json({
     success: true,
     version: cfg.version || 'unknown',
     sources: buildSourcesList(),
+    warning: cfg ? null : `datasets_config.json غير موجود في هذا النشر (cfg_path=${cfgPath}). تم استخدام قائمة fallback.`
   });
 });
 

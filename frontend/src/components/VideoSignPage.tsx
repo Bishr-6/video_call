@@ -191,7 +191,7 @@ export default function VideoSignPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ video_url: videoUrl.trim(), platform, language: 'ar' }),
-        signal: AbortSignal.timeout(120000) // 2 minutes for full pipeline
+        signal: AbortSignal.timeout(300000) // 5 minutes (YouTube audio download may be slow)
       })
 
       console.log('📡 Response status:', response.status)
