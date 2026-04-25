@@ -4,6 +4,7 @@ import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision'
 import { ArabicSignLanguageEngine, PredictionSmoother, assembleLettersToWords } from './ArabicSignLanguageEngine'
 import { GESTURES, processGestureStream, type ClassificationResult, type DetectionMode } from './SignLanguageClassifier'
 import SourcesPanel from './SourcesPanel'
+import * as tf from '@tensorflow/tfjs'
 
 type CallStatus = 'idle' | 'searching' | 'in-room'
 
@@ -58,6 +59,8 @@ export default function VideoCallPage() {
   const [isListening, setIsListening] = useState(false)
   const [receivedSignSequence, setReceivedSignSequence] = useState<string[]>([])
   const [detectionMode, setDetectionMode] = useState<DetectionMode>('all')
+  const [tfModel, setTfModel] = useState<tf.LayersModel | null>(null)
+  const [tfModelStatus, setTfModelStatus] = useState<'loading' | 'ready' | 'failed'>('loading')
 
   const socketRef = useRef<Socket | null>(null)
   const recognitionRef = useRef<any>(null)
@@ -78,6 +81,23 @@ export default function VideoCallPage() {
   const showToast = (msg: string, type = 'info') => {
     setToast({ msg, type }); setTimeout(() => setToast(null), 3000)
   }
+
+  useEffect(() => {
+    async function loadTfModel() {
+      try {
+        setTfModelStatus('loading')
+        // Attempt to load the pre-trained Google model or custom model
+        const model = await tf.loadLayersModel('/models/sign_model/model.json')
+        setTfModel(model)
+        setTfModelStatus('ready')
+        console.log("✅ TensorFlow.js model loaded successfully")
+      } catch (err) {
+        console.warn("⚠️ TensorFlow.js model not found. Falling back to Basic Engine.", err)
+        setTfModelStatus('failed')
+      }
+    }
+    loadTfModel()
+  }, [])
 
   const toggleSpeechRecognition = () => {
     if (isListening) {
@@ -270,7 +290,38 @@ export default function VideoCallPage() {
               ctx.shadowBlur = 0
             }
 
-            const res = processGestureStream(results.landmarks[0] as any, detectionMode)
+            let res: { currentGesture: ClassificationResult | null } = { currentGesture: null }
+            
+            if (tfModelStatus === 'ready' && tfModel) {
+              // TFJS Advanced Mode (Temporarily implemented as a wrapper)
+              // Here we flatten the landmarks to a 63-element array [x1, y1, z1, x2, y2, z2...]
+              const landmarks = results.landmarks[0]
+              const flatLandmarks = landmarks.flatMap(l => [l.x, l.y, l.z])
+              const inputTensor = tf.tensor2d([flatLandmarks])
+              
+              try {
+                const prediction = tfModel.predict(inputTensor) as tf.Tensor
+                const scores = prediction.dataSync()
+                const maxScoreIndex = scores.indexOf(Math.max(...Array.from(scores)))
+                
+                // Assuming GESTURES is mapped sequentially to the model outputs
+                if (scores[maxScoreIndex] > 0.7 && GESTURES[maxScoreIndex]) {
+                  res.currentGesture = {
+                    name: GESTURES[maxScoreIndex].name,
+                    arabic: GESTURES[maxScoreIndex].arabic,
+                    confidence: scores[maxScoreIndex]
+                  }
+                }
+              } catch (e) {
+                // Ignore prediction errors, fallback
+              } finally {
+                inputTensor.dispose()
+              }
+            } else {
+              // Basic Heuristic Mode
+              res = processGestureStream(results.landmarks[0] as any, detectionMode)
+            }
+
             currentGestureRef.current = res.currentGesture
             const now = Date.now()
             if (res.currentGesture) {
@@ -459,8 +510,13 @@ export default function VideoCallPage() {
             
             {/* Mode Selector Panel */}
             <div className="glass-strong p-4 flex flex-col gap-2">
-              <h4 style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: 4 }}>🎯 نمط التعرف الذكي</h4>
-              <div className="flex gap-2 flex-wrap">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h4 style={{ fontSize: '0.8rem', opacity: 0.7, margin: 0 }}>🎯 نمط التعرف الذكي</h4>
+                <span className="privacy-badge" style={{ background: tfModelStatus === 'ready' ? 'var(--accent-green)' : 'var(--accent-orange)' }}>
+                  {tfModelStatus === 'ready' ? '🧠 AI Model (TFJS)' : '⚙️ Basic Heuristics'}
+                </span>
+              </div>
+              <div className="flex gap-2 flex-wrap mt-2">
                 <button className={`btn btn-sm ${detectionMode === 'all' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('all')}>🌐 الكل</button>
                 <button className={`btn btn-sm ${detectionMode === 'letter' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('letter')}>🔤 حروف</button>
                 <button className={`btn btn-sm ${detectionMode === 'number' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('number')}>🔢 أرقام</button>
