@@ -16,6 +16,14 @@ dotenv.config();
 
 const app = express();
 
+// Prevent silent crashes on Railway and show root cause
+process.on('unhandledRejection', (reason) => {
+  console.error('❌ unhandledRejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('❌ uncaughtException:', err);
+});
+
 // Initialize OpenAI
 let openai = null;
 if (process.env.OPENAI_API_KEY) {
@@ -27,12 +35,14 @@ if (process.env.OPENAI_API_KEY) {
 
 // ✅ CORS Configuration for Production
 // - Allow exact origins + any Vercel subdomain (preview & production)
+// - Allow explicit CORS_ORIGIN from env (Railway variable)
 const allowedOrigins = new Set([
   'https://video-call-one-kappa.vercel.app',
   'https://videocall-production-2b33.up.railway.app',
   'http://localhost:3000',
   'http://localhost:5173',
 ]);
+if (process.env.CORS_ORIGIN) allowedOrigins.add(process.env.CORS_ORIGIN);
 
 function isAllowedOrigin(origin) {
   if (!origin) return true; // allow non-browser clients (curl/mobile)
@@ -91,12 +101,21 @@ function safeReadJson(filePath) {
 }
 
 function getDatasetsConfig() {
-  // repoRoot/
-  //   backend/server.js   ← this file
-  //   ml_pipeline/datasets_config.json
-  const repoRoot = path.resolve(__dirname, '..');
-  const cfgPath = path.join(repoRoot, 'ml_pipeline', 'datasets_config.json');
-  return { cfgPath, cfg: safeReadJson(cfgPath) };
+  // Possible layouts:
+  // 1) repoRoot/backend/server.js + repoRoot/ml_pipeline/datasets_config.json
+  // 2) backend as deploy root: /app/server.js + /app/ml_pipeline/datasets_config.json
+  const candidates = [
+    path.join(path.resolve(__dirname, '..'), 'ml_pipeline', 'datasets_config.json'),
+    path.join(path.resolve(__dirname), 'ml_pipeline', 'datasets_config.json'),
+    path.join(process.cwd(), 'ml_pipeline', 'datasets_config.json'),
+  ];
+  for (const cfgPath of candidates) {
+    const cfg = safeReadJson(cfgPath);
+    if (cfg) return { cfgPath, cfg };
+  }
+  // return first candidate for debugging
+  const cfgPath = candidates[0];
+  return { cfgPath, cfg: null };
 }
 
 const SOURCES_CATALOG = {
@@ -151,6 +170,7 @@ app.get('/debug', (req, res) => res.json({
   version: '4.0.0',
   openai_ready: !!openai,
   node_env: process.env.NODE_ENV || 'not set',
+  cors_origin_env: process.env.CORS_ORIGIN || null,
   pipeline: 'YouTube Transcript → Whisper → GPT-4o-mini'
 }));
 
