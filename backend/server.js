@@ -6,7 +6,6 @@ import { v4 as uuidv4 } from 'uuid';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 import ytdl from '@distube/ytdl-core';
-import youtubeTranscriptPkg from 'youtube-transcript';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -211,11 +210,12 @@ function extractYouTubeId(url) {
 async function getYouTubeTranscript(videoId) {
   try {
     console.log('  📝 Method 1: YouTube Transcript (free)...');
+    const mod = await import('youtube-transcript');
     const YoutubeTranscript =
-      youtubeTranscriptPkg?.YoutubeTranscript ||
-      youtubeTranscriptPkg?.default?.YoutubeTranscript ||
-      youtubeTranscriptPkg?.default ||
-      youtubeTranscriptPkg;
+      mod?.YoutubeTranscript ||
+      mod?.default?.YoutubeTranscript ||
+      mod?.default ||
+      mod;
 
     if (!YoutubeTranscript?.fetchTranscript) {
       console.log('  ⚠️ youtube-transcript: fetchTranscript not available');
