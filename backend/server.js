@@ -26,17 +26,31 @@ if (process.env.OPENAI_API_KEY) {
 }
 
 // ✅ CORS Configuration for Production
-const allowedOrigins = [
+// - Allow exact origins + any Vercel subdomain (preview & production)
+const allowedOrigins = new Set([
   'https://video-call-one-kappa.vercel.app',
   'https://videocall-production-2b33.up.railway.app',
   'http://localhost:3000',
   'http://localhost:5173',
-];
+]);
+
+function isAllowedOrigin(origin) {
+  if (!origin) return true; // allow non-browser clients (curl/mobile)
+  if (allowedOrigins.has(origin)) return true;
+  // Allow Vercel preview/prod domains
+  try {
+    const { hostname, protocol } = new URL(origin);
+    if (protocol === 'https:' && hostname.endsWith('.vercel.app')) return true;
+  } catch {
+    // ignore invalid Origin
+  }
+  return false;
+}
 
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (isAllowedOrigin(origin)) {
       callback(null, true);
     } else {
       callback(new Error('CORS not allowed for this origin'));
@@ -51,7 +65,7 @@ app.use(cors({
 // Handle preflight requests explicitly
 app.options('*', cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (isAllowedOrigin(origin)) {
       callback(null, true);
     } else {
       callback(new Error('CORS not allowed'));
@@ -63,6 +77,73 @@ app.options('*', cors({
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// ── External Datasets Registry (sources) ─────────────────────────
+const __filename = new URL(import.meta.url).pathname;
+const __dirname = path.dirname(__filename);
+
+function safeReadJson(filePath) {
+  try {
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function getDatasetsConfig() {
+  // repoRoot/
+  //   backend/server.js   ← this file
+  //   ml_pipeline/datasets_config.json
+  const repoRoot = path.resolve(__dirname, '..');
+  const cfgPath = path.join(repoRoot, 'ml_pipeline', 'datasets_config.json');
+  return { cfgPath, cfg: safeReadJson(cfgPath) };
+}
+
+const SOURCES_CATALOG = {
+  KArSL: {
+    link: 'https://www.kaggle.com/datasets/umdmemphis/kasl-arabic-sign-language-lexicon',
+    formats: ['mp4', 'skeleton', 'depth'],
+  },
+  ArASL2018: {
+    link: 'https://data.mendeley.com/datasets/z8zr0t4jhb/4',
+    formats: ['jpg', 'png'],
+  },
+  ArYSL: {
+    link: 'https://figshare.com/articles/ArYSL_Arabic_Sign_Language_Dataset/7440476',
+    formats: ['jpg', 'png'],
+  },
+  ArabSign: {
+    link: null,
+    formats: ['mp4', 'skeleton', 'depth'],
+    note: 'يتطلب مراسلة الباحث (حسب موقع المصدر)',
+  },
+  AASL: {
+    link: 'https://universe.roboflow.com/',
+    formats: ['jpg', 'png'],
+  },
+};
+
+function buildSourcesList() {
+  const { cfg } = getDatasetsConfig();
+  const datasets = Array.isArray(cfg?.datasets) ? cfg.datasets : [];
+  return datasets.map((d) => {
+    const extra = SOURCES_CATALOG[d.name] || {};
+    return {
+      name: d.name,
+      description: d.description || '',
+      type: d.type || 'unknown',
+      priority: typeof d.priority === 'number' ? d.priority : null,
+      enabled: !!d.enabled,
+      input_dir: d.input_dir || '',
+      link: extra.link ?? null,
+      formats: extra.formats ?? [],
+      note: extra.note ?? null,
+      requires_landmarks: d.type === 'images' || d.type === 'videos',
+      has_skeleton: d.type === 'skeleton' || (d.config && d.config.skeleton_available === true),
+    };
+  });
+}
+
 // ── Health Check ─────────────────────────────────────────────────
 app.get('/', (req, res) => res.json({ status: 'ok', service: 'Eshara Backend', version: '4.0.0' }));
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
@@ -72,6 +153,23 @@ app.get('/debug', (req, res) => res.json({
   node_env: process.env.NODE_ENV || 'not set',
   pipeline: 'YouTube Transcript → Whisper → GPT-4o-mini'
 }));
+
+// Sources registry for frontend pages
+app.get('/api/sources', (req, res) => {
+  const { cfgPath, cfg } = getDatasetsConfig();
+  if (!cfg) {
+    return res.status(500).json({
+      success: false,
+      error: 'datasets_config.json غير موجود أو غير صالح',
+      cfg_path: cfgPath,
+    });
+  }
+  return res.json({
+    success: true,
+    version: cfg.version || 'unknown',
+    sources: buildSourcesList(),
+  });
+});
 
 // ══════════════════════════════════════════════════════════════════
 // ██  SIGN LANGUAGE PIPELINE v4.0  ████████████████████████████████
@@ -187,6 +285,11 @@ async function getVideoMetadata(videoId) {
 async function convertToSignGloss(text, sourceLang) {
   if (!openai) throw new Error('OpenAI غير متاح');
 
+  const sources = buildSourcesList();
+  const sourcesNote = sources.length
+    ? `مصادر الإشارات المتاحة في النظام (مرجعية): ${sources.map(s => s.name).join(', ')}.`
+    : '';
+
   const langNote = sourceLang && sourceLang !== 'ar' 
     ? `النص الأصلي باللغة ${sourceLang === 'en' ? 'الإنجليزية' : sourceLang}. ترجمه أولاً للعربية ثم حوّله.` 
     : '';
@@ -197,6 +300,7 @@ async function convertToSignGloss(text, sourceLang) {
       {
         role: 'system',
         content: `أنت خبير في لغة الإشارة العربية والإماراتية. ${langNote}
+${sourcesNote}
 مهمتك:
 1. إذا كان النص بلغة غير العربية، ترجمه للعربية أولاً
 2. حوّل النص إلى Sign Language Gloss (احذف حروف الجر والأدوات)
@@ -290,6 +394,7 @@ app.post('/api/sign-translate', async (req, res) => {
     console.log('🧠 GPT: Converting to Sign Language...');
     const gptResult = await convertToSignGloss(transcript, lang);
     const response = buildResponse(transcript, gptResult, source);
+    response.sources = buildSourcesList();
 
     console.log(`✅ ═══ Done! ${response.data.words_array.length} words ═══\n`);
     return res.json(response);

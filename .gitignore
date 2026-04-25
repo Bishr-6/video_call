@@ -14,3 +14,18 @@ build/
 *.code-workspace
 .DS_Store/
 *.sublime-workspace
+
+# Python / virtualenv
+.venv/
+__pycache__/
+*.pyc
+
+# Large ML artifacts / datasets
+ml_pipeline/MP_Data/
+external_data/
+*.npy
+*.mp4
+
+# Temporary vendor repos (if present locally)
+arabic_sl_repo/
+external_repo/

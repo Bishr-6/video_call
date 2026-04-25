@@ -3,6 +3,7 @@ import { io, Socket } from 'socket.io-client'
 import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision'
 import { ArabicSignLanguageEngine, PredictionSmoother, assembleLettersToWords } from './ArabicSignLanguageEngine'
 import { GESTURES, processGestureStream, type ClassificationResult, type DetectionMode } from './SignLanguageClassifier'
+import SourcesPanel from './SourcesPanel'
 
 type CallStatus = 'idle' | 'searching' | 'in-room'
 
@@ -390,6 +391,10 @@ export default function VideoCallPage() {
               </div>
             )}
           </div>
+
+          <div style={{ width: '100%', maxWidth: 980 }}>
+            <SourcesPanel compact />
+          </div>
         </div>
       )}
 
@@ -493,6 +498,12 @@ export default function VideoCallPage() {
                }}><input className="input" placeholder="اكتب رسالة..." style={{ flex: 1 }} /><button className="btn btn-primary">📤</button></form>
             </div>
           </div>
+        </div>
+      )}
+
+      {status === 'in-room' && (
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 18px 26px' }}>
+          <SourcesPanel compact />
         </div>
       )}
     </div>

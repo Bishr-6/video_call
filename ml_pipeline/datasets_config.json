@@ -1,0 +1,164 @@
+{
+  "description": "ملف التكوين الرئيسي لمعالجة البيانات الخارجية",
+  "version": "2.0",
+  "output_config": {
+    "base_output_dir": "MP_Data",
+    "create_backups": true,
+    "save_statistics": true,
+    "save_metadata": true
+  },
+  "datasets": [
+    {
+      "name": "KArSL",
+      "description": "الأكبر والأشمل - 502 كلمة من لغة الإشارة العربية",
+      "type": "skeleton",
+      "priority": 1,
+      "input_dir": "./external_data/KArSL",
+      "enabled": false,
+      "comments": "غير مفعل حتى الآن - قم بتحميل البيانات وتفعيله",
+      "labels_mapping": {
+        "example_word_1": "word_1",
+        "example_word_2": "word_2"
+      },
+      "config": {
+        "detect_hand_threshold": 0.5,
+        "skeleton_format": "npy"
+      }
+    },
+    {
+      "name": "ArASL2018",
+      "description": "الحروف العربية - 32 حرف من 54,049 صورة",
+      "type": "images",
+      "priority": 2,
+      "input_dir": "./external_data/ArASL2018",
+      "enabled": false,
+      "comments": "يتطلب استخراج Landmarks من الصور",
+      "labels_mapping": {
+        "ح": "alef",
+        "ا": "ba",
+        "ت": "ta",
+        "ث": "tha",
+        "ج": "jeem",
+        "ح": "haa",
+        "خ": "khaa",
+        "د": "dal",
+        "ذ": "dhal",
+        "ر": "raa",
+        "ز": "zay",
+        "س": "seen",
+        "ش": "sheen",
+        "ص": "sad",
+        "ض": "dad",
+        "ط": "tah",
+        "ظ": "zah",
+        "ع": "ain",
+        "غ": "ghain",
+        "ف": "faa",
+        "ق": "qaf",
+        "ك": "kaf",
+        "ل": "lam",
+        "م": "meem",
+        "ن": "noon",
+        "ه": "haa2",
+        "و": "waw",
+        "ي": "yaa"
+      },
+      "config": {
+        "extract_landmarks": true,
+        "mediapipe_confidence": 0.5,
+        "min_hands_required": 1
+      }
+    },
+    {
+      "name": "ArYSL",
+      "description": "اللهجة اليمنية - 32 إشارة + 357 كلمة من 35,900 صورة",
+      "type": "images",
+      "priority": 2,
+      "input_dir": "./external_data/ArYSL",
+      "enabled": false,
+      "comments": "بيانات عالية الجودة من اللهجة اليمنية",
+      "labels_mapping": {
+        "class_1": "yemeni_1",
+        "class_2": "yemeni_2",
+        "class_3": "yemeni_3"
+      },
+      "config": {
+        "extract_landmarks": true,
+        "mediapipe_confidence": 0.5,
+        "support_dialect": "Yemeni"
+      }
+    },
+    {
+      "name": "ArabSign",
+      "description": "جمل متصلة - 50 جملة من 9,335 عينة (مستوى متقدم)",
+      "type": "videos",
+      "priority": 1,
+      "input_dir": "./external_data/ArabSign",
+      "enabled": false,
+      "comments": "يحتوي على جمل كاملة - يتطلب إيميل للحصول على البيانات",
+      "labels_mapping": {
+        "sentence_1": "sent_1",
+        "sentence_2": "sent_2"
+      },
+      "config": {
+        "extract_from_video": true,
+        "skeleton_available": true,
+        "sequence_length": 30,
+        "fps_stride": 1
+      }
+    },
+    {
+      "name": "AASL",
+      "description": "حروف من Roboflow - 31 إشارة من 21,868 صورة",
+      "type": "images",
+      "priority": 3,
+      "input_dir": "./external_data/AASL",
+      "enabled": false,
+      "comments": "بيانات من منصة Roboflow",
+      "labels_mapping": {
+        "letter_0": "aasl_0",
+        "letter_1": "aasl_1",
+        "letter_2": "aasl_2"
+      },
+      "config": {
+        "extract_landmarks": true,
+        "mediapipe_confidence": 0.5,
+        "normalize_coordinates": true
+      }
+    }
+  ],
+  "processing_settings": {
+    "sequence_length": 30,
+    "frame_rate_stride": 1,
+    "batch_size": 32,
+    "num_workers": 4,
+    "mediapipe_detection_confidence": 0.5,
+    "mediapipe_tracking_confidence": 0.5,
+    "normalize_keypoints": true,
+    "handle_missing_frames": "zero_padding",
+    "quality_checks": {
+      "min_frames_per_sequence": 15,
+      "min_detectable_hands": 1,
+      "remove_corrupted": true
+    }
+  },
+  "training_settings": {
+    "sequence_length": 30,
+    "train_test_split": 0.85,
+    "validation_split": 0.15,
+    "epochs": 200,
+    "batch_size": 32,
+    "learning_rate": 0.001,
+    "dropout_rate": 0.2,
+    "early_stopping_patience": 10,
+    "use_pretrained": false
+  },
+  "output_settings": {
+    "save_model": true,
+    "model_name": "sign_language_model.h5",
+    "save_labels_map": true,
+    "save_statistics": true,
+    "tensorboard_logs": "Logs/",
+    "backup_frequency": "after_each_dataset"
+  }
+}
