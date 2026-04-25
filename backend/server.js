@@ -25,7 +25,41 @@ if (process.env.OPENAI_API_KEY) {
   console.warn("⚠️ Warning: OPENAI_API_KEY is missing.");
 }
 
-app.use(cors({ origin: true, credentials: true }));
+// ✅ CORS Configuration for Production
+const allowedOrigins = [
+  'https://video-call-one-kappa.vercel.app',
+  'https://videocall-production-2b33.up.railway.app',
+  'http://localhost:3000',
+  'http://localhost:5173',
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS not allowed for this origin'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 86400 // 24 hours
+}));
+
+// Handle preflight requests explicitly
+app.options('*', cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS not allowed'));
+    }
+  },
+  credentials: true
+}));
+
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
