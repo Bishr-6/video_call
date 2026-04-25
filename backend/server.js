@@ -204,7 +204,7 @@ app.get('/api/sources', (req, res) => {
   const { cfgPath, cfg } = getDatasetsConfig();
   return res.json({
     success: true,
-    version: cfg.version || 'unknown',
+    version: cfg?.version || 'unknown',
     sources: buildSourcesList(),
     warning: cfg ? null : `datasets_config.json غير موجود في هذا النشر (cfg_path=${cfgPath}). تم استخدام قائمة fallback.`
   });
