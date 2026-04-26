@@ -4,6 +4,7 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import { v4 as uuidv4 } from 'uuid';
 import OpenAI from 'openai';
+import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import ytdl from '@distube/ytdl-core';
 import fs from 'fs';
@@ -30,6 +31,15 @@ if (process.env.OPENAI_API_KEY) {
   console.log("✅ OpenAI Initialized");
 } else {
   console.warn("⚠️ Warning: OPENAI_API_KEY is missing.");
+}
+
+// Initialize Supabase
+let supabase = null;
+if (process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
+  supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+  console.log("✅ Supabase Initialized");
+} else {
+  console.warn("⚠️ Warning: Supabase credentials missing. Using in-memory fallback.");
 }
 
 // ✅ CORS Configuration for Production
@@ -517,7 +527,34 @@ app.post('/api/safefriend/chat', async (req, res) => {
   }
 });
 
-// Image generation endpoint with rate limiting
+// Get SafeFriend status (remaining images)
+app.get('/api/safefriend/status', async (req, res) => {
+  const clientId = req.headers['x-forwarded-for']?.split(',')[0] || req.ip || 'demo';
+  const todayDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  
+  let count = 0;
+  
+  if (supabase) {
+    const { data, error } = await supabase
+      .from('user_image_usage')
+      .select('count')
+      .eq('ip_address', clientId)
+      .eq('usage_date', todayDate)
+      .single();
+      
+    if (data) count = data.count;
+  } else {
+    const key = `${clientId}-${new Date().toDateString()}`;
+    count = imageCountStore.get(key) || 0;
+  }
+  
+  return res.json({
+    success: true,
+    remaining: Math.max(0, 3 - count),
+    today: todayDate
+  });
+});
+
 app.post('/api/safefriend/generate-image', async (req, res) => {
   try {
     const { prompt } = req.body;
@@ -525,13 +562,25 @@ app.post('/api/safefriend/generate-image', async (req, res) => {
       return res.status(400).json({ success: false, error: 'الوصف مطلوب أو OpenAI غير متوفر' });
     }
 
-    // Get client identifier (check x-forwarded-for for proxies like Vercel)
     const clientId = req.headers['x-forwarded-for']?.split(',')[0] || req.ip || 'demo';
-    const today = new Date().toDateString();
-    const key = `${clientId}-${today}`;
+    const todayDate = new Date().toISOString().split('T')[0];
+    
+    let count = 0;
+    
+    // Check limit
+    if (supabase) {
+      const { data } = await supabase
+        .from('user_image_usage')
+        .select('count')
+        .eq('ip_address', clientId)
+        .eq('usage_date', todayDate)
+        .single();
+      if (data) count = data.count;
+    } else {
+      const key = `${clientId}-${new Date().toDateString()}`;
+      count = imageCountStore.get(key) || 0;
+    }
 
-    // Check image limit (3 per day per user)
-    const count = imageCountStore.get(key) || 0;
     if (count >= 3) {
       return res.status(429).json({ 
         success: false, 
@@ -539,9 +588,8 @@ app.post('/api/safefriend/generate-image', async (req, res) => {
       });
     }
 
-    // Add educational prompt prefix to ensure appropriate content
+    // Generate image
     const safePrompt = `صورة تعليمية توضيحية: ${prompt}. يجب أن تكون مناسبة وتعليمية.`;
-
     const image = await openai.images.generate({
       model: 'dall-e-3',
       prompt: safePrompt,
@@ -550,23 +598,23 @@ app.post('/api/safefriend/generate-image', async (req, res) => {
       quality: 'standard'
     });
 
-    // Increment counter
-    imageCountStore.set(key, count + 1);
-
-    // Clean up old entries (older than 30 days)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    for (const [k] of imageCountStore) {
-      const dateStr = k.split('-').slice(1).join('-');
-      if (new Date(dateStr) < thirtyDaysAgo) {
-        imageCountStore.delete(k);
-      }
+    // Update count
+    const newCount = count + 1;
+    if (supabase) {
+      await supabase.from('user_image_usage').upsert({
+        ip_address: clientId,
+        usage_date: todayDate,
+        count: newCount
+      }, { onConflict: 'ip_address, usage_date' });
+    } else {
+      const key = `${clientId}-${new Date().toDateString()}`;
+      imageCountStore.set(key, newCount);
     }
 
     return res.json({
       success: true,
       imageUrl: image.data[0]?.url,
-      remaining: 3 - (count + 1),
+      remaining: 3 - newCount,
       timestamp: new Date().toISOString()
     });
 
@@ -577,20 +625,6 @@ app.post('/api/safefriend/generate-image', async (req, res) => {
       error: 'عذراً، حدث خطأ في إنشاء الصورة. حاول مرة أخرى.'
     });
   }
-});
-
-// Get SafeFriend status (remaining images)
-app.get('/api/safefriend/status', (req, res) => {
-  const clientId = req.headers['x-forwarded-for']?.split(',')[0] || req.ip || 'demo';
-  const today = new Date().toDateString();
-  const key = `${clientId}-${today}`;
-  const count = imageCountStore.get(key) || 0;
-  
-  return res.json({
-    success: true,
-    remaining: Math.max(0, 3 - count),
-    today
-  });
 });
 
 
