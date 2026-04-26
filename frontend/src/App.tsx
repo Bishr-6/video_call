@@ -36,7 +36,7 @@ function App() {
       <nav className="nav">
         <div className="nav-inner">
           <div className="nav-logo" onClick={() => setCurrentPage('home')}>
-            <span>🤝</span>
+            <img src="/logo.png" alt="Ishara Logo" style={{ height: '40px', width: 'auto', borderRadius: '8px' }} />
             <span className="gradient-text">إشارة</span>
           </div>
           <div className="nav-links">
@@ -228,7 +228,7 @@ function App() {
             <div style={{ display: 'flex', justifyContent: 'center', gap: '32px', flexWrap: 'wrap', fontSize: '1rem', color: 'var(--text-muted)' }}>
               <span>بشر جرار</span>
               <span>رضوان منذر</span>
-              <span style={{ color: 'var(--accent-orange)', fontWeight: '700' }}>بإشراف: أ.د. صهيب سيد</span>
+              <span style={{ color: 'var(--accent-orange)', fontWeight: '700' }}>بإشراف: أ. صهيب سيد</span>
             </div>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '24px', opacity: 0.8 }}>
               © 2026 جميع الحقوق محفوظة • منصة إماراتية ذكية للشمول الرقمي 🇦🇪

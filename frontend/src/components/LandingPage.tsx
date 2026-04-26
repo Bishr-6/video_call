@@ -33,6 +33,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
         <div className="privacy-badge" style={{ marginBottom: 24 }}>
           🔒 معالجة محلية 100% • خصوصية تامة
         </div>
+        <img src="/logo.png" alt="Ishara Logo" style={{ width: '120px', height: 'auto', marginBottom: '24px', borderRadius: '20px', boxShadow: 'var(--shadow-glow)' }} />
         <h1>
           <span className="gradient-text">إشارة</span>
           <br />

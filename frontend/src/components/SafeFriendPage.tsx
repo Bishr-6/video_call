@@ -443,30 +443,69 @@ export default function SafeFriendPage() {
                   marginTop: '12px'
                 }}>
                   {generatedImages.map(img => (
-                    <div key={img.id} style={{
+                    <div key={img.id} className="image-gen-card" style={{
                       borderRadius: 'var(--radius-md)',
                       overflow: 'hidden',
-                      cursor: 'pointer',
-                      transition: 'transform 0.3s',
-                      border: '1px solid var(--border-glass)'
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.transform = 'scale(1.05)'
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLElement).style.transform = 'scale(1)'
-                    }}
-                    >
+                      position: 'relative',
+                      transition: 'all 0.3s',
+                      border: '1px solid var(--border-glass)',
+                      background: 'var(--bg-card)'
+                    }}>
                       <img
                         src={img.imageUrl}
                         alt={img.prompt}
                         style={{
                           width: '100%',
                           height: '150px',
-                          objectFit: 'cover'
+                          objectFit: 'cover',
+                          display: 'block'
                         }}
-                        onClick={() => window.open(img.imageUrl, '_blank')}
                       />
+                      <div className="image-overlay" style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'rgba(0,0,0,0.6)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        opacity: 0,
+                        transition: 'opacity 0.3s'
+                      }}>
+                        <button 
+                          className="btn btn-sm btn-primary" 
+                          onClick={() => window.open(img.imageUrl, '_blank')}
+                          style={{ width: '80%' }}
+                        >
+                          👁️ عرض
+                        </button>
+                        <button 
+                          className="btn btn-sm btn-ghost" 
+                          onClick={async () => {
+                            try {
+                              const response = await fetch(img.imageUrl);
+                              const blob = await response.blob();
+                              const url = window.URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `ishara-image-${Date.now()}.png`;
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                            } catch (e) {
+                              window.open(img.imageUrl, '_blank');
+                            }
+                          }}
+                          style={{ width: '80%', color: 'white', borderColor: 'white' }}
+                        >
+                          📥 تنزيل
+                        </button>
+                      </div>
+                      <style>{`
+                        .image-gen-card:hover .image-overlay { opacity: 1 !important; }
+                        .image-gen-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+                      `}</style>
                     </div>
                   ))}
                 </div>

@@ -137,7 +137,7 @@ export default function AboutPage() {
               }}>
                 👨‍🏫
               </div>
-              <h3 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', fontWeight: '800' }}>أ.د. صهيب سيد</h3>
+              <h3 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', fontWeight: '800' }}>أ. صهيب سيد</h3>
               <p style={{ color: 'var(--accent-orange)', fontSize: '0.95rem', fontWeight: '700', marginTop: '4px' }}>المشرف الأكاديمي</p>
             </div>
           </div>
