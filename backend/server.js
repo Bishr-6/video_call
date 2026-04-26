@@ -457,6 +457,129 @@ app.post('/api/sign-translate', async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════
+// ██  SAFEFRIEND (Psychological Support Chatbot)  ███████████████
+// ══════════════════════════════════════════════════════════════════
+
+// SafeFriend System Prompt
+const SAFEFRIEND_SYSTEM = `أنت "صديقي الآمن" - مساعد نفسي ذكي للطلاب. 
+أنت متخصص في تقديم دعم نفسي أولي وتعليمي للطلاب خلال فترات الامتحانات والضغوط الدراسية.
+
+قواعد التفاعل:
+1. تحدث باللغة العربية الفصيحة الواضحة
+2. كن متعاطفاً وداعماً وإيجابياً
+3. عندما يعبر الطالب عن توتر أو ضيق، قدم تمارين تنفس بسيطة ونصائح للاسترخاء
+4. الامتثال للموضوعات التعليمية والنفسية فقط
+5. إذا طلب موضوعاً مختلفاً، اعتذر بلطف: "عذراً، أنا متخصص في الدعم النفسي التعليمي فقط. كيف يمكنني مساعدتك في دراستك؟"
+6. لا تعطِ تشخيصات طبية أو استشارات نفسية متقدمة
+7. لا تخزن البيانات الشخصية أبداً
+8. إذا اكتشفت علامات استغاثة حقيقية (كلمات مثل: احزن، مكتئب، أؤذي، انتحاري)، أخبر الطالب: "أنا قلق عليك. يرجى التواصل فوراً مع المرشد الطلابي أو متخصص نفسي."`;
+
+// Store image generation count (in production, use database)
+const imageCountStore = new Map();
+
+// Chat endpoint
+app.post('/api/safefriend/chat', async (req, res) => {
+  try {
+    const { message, history } = req.body;
+    if (!message || !openai) {
+      return res.status(400).json({ success: false, error: 'رسالة أو OpenAI غير متوفر' });
+    }
+
+    const messages = [
+      ...history,
+      { role: 'user', content: message }
+    ];
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: SAFEFRIEND_SYSTEM },
+        ...messages
+      ],
+      temperature: 0.8,
+      max_tokens: 1024
+    });
+
+    const reply = completion.choices[0]?.message?.content || 'عذراً، حدث خطأ في المعالجة.';
+
+    return res.json({
+      success: true,
+      reply,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ SafeFriend Chat Error:', error?.message);
+    return res.status(500).json({ 
+      success: false, 
+      error: 'عذراً، حدث خطأ في الخادم. حاول مرة أخرى.'
+    });
+  }
+});
+
+// Image generation endpoint with rate limiting
+app.post('/api/safefriend/generate-image', async (req, res) => {
+  try {
+    const { prompt } = req.body;
+    if (!prompt || !openai) {
+      return res.status(400).json({ success: false, error: 'الوصف مطلوب أو OpenAI غير متوفر' });
+    }
+
+    // Get client identifier (for demo, use IP or session)
+    const clientId = req.ip || 'demo';
+    const today = new Date().toDateString();
+    const key = `${clientId}-${today}`;
+
+    // Check image limit (3 per day per user)
+    const count = imageCountStore.get(key) || 0;
+    if (count >= 3) {
+      return res.status(429).json({ 
+        success: false, 
+        error: 'لقد وصلت للحد الأقصى من الصور اليوم (3 صور). حاول غداً.'
+      });
+    }
+
+    // Add educational prompt prefix to ensure appropriate content
+    const safePrompt = `صورة تعليمية توضيحية: ${prompt}. يجب أن تكون مناسبة وتعليمية.`;
+
+    const image = await openai.images.generate({
+      model: 'dall-e-3',
+      prompt: safePrompt,
+      n: 1,
+      size: '1024x1024',
+      quality: 'standard'
+    });
+
+    // Increment counter
+    imageCountStore.set(key, count + 1);
+
+    // Clean up old entries (older than 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    for (const [k] of imageCountStore) {
+      const dateStr = k.split('-').slice(1).join('-');
+      if (new Date(dateStr) < thirtyDaysAgo) {
+        imageCountStore.delete(k);
+      }
+    }
+
+    return res.json({
+      success: true,
+      imageUrl: image.data[0]?.url,
+      remaining: 3 - (count + 1),
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ SafeFriend Image Generation Error:', error?.message);
+    return res.status(500).json({ 
+      success: false, 
+      error: 'عذراً، حدث خطأ في إنشاء الصورة. حاول مرة أخرى.'
+    });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════
 // ██  SOCKET.IO (Video Call)  █████████████████████████████████████
 // ══════════════════════════════════════════════════════════════════
 
