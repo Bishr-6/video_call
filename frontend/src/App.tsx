@@ -91,18 +91,18 @@ function App() {
 
       {/* Footer */}
       <footer style={{
+        padding: '60px 24px',
+        marginTop: '80px',
+        background: 'linear-gradient(to top, var(--bg-primary), transparent)',
         borderTop: '1px solid var(--border-glass)',
-        padding: '32px 24px',
-        marginTop: '60px',
-        background: 'rgba(10,14,26,0.5)',
         textAlign: 'center'
       }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <div style={{ 
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: '24px',
-            marginBottom: '32px',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '32px',
+            marginBottom: '40px',
             textAlign: 'center'
           }}>
             <div>
@@ -204,13 +204,36 @@ function App() {
               </ul>
             </div>
             <div>
-              <h4 style={{ marginBottom: '12px', color: 'var(--text-primary)', fontWeight: '600' }}>التواصل</h4>
+              <h4 style={{ marginBottom: '16px', color: 'var(--text-primary)', fontWeight: '800' }}>التواصل المباشر</h4>
               <ul style={{ listStyle: 'none', padding: 0 }}>
-                <li style={{ marginBottom: '8px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                  support@eshara.com
+                <li style={{ marginBottom: '12px' }}>
+                  <a 
+                    href="mailto:bishrjr37@gmail.com"
+                    style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.95rem' }}
+                  >
+                    ✉️ bishrjr37@gmail.com
+                  </a>
                 </li>
-                <li style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                  +966 XX XXX XXXX
+                <li>
+                  <a 
+                    href="https://wa.me/971502406519"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ 
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      color: 'white',
+                      background: '#25D366',
+                      padding: '8px 16px',
+                      borderRadius: 'var(--radius-md)',
+                      textDecoration: 'none',
+                      fontSize: '0.9rem',
+                      fontWeight: '700'
+                    }}
+                  >
+                    💬 واتساب: 0502406519
+                  </a>
                 </li>
               </ul>
             </div>
@@ -218,23 +241,20 @@ function App() {
 
           {/* Credits */}
           <div style={{
-            padding: '24px',
-            borderTop: '1px solid var(--border-glass)',
-            marginTop: '24px'
+            padding: '40px 24px',
+            marginTop: '40px',
+            borderTop: '1px solid var(--border-glass)'
           }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '8px' }}>
-              <strong>إعداد وتنفيذ فريق الذكاء الاصطناعي للفئة الثانية</strong>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', marginBottom: '16px' }}>
+              <strong>فريق تطوير إشارة</strong>
             </p>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '32px', flexWrap: 'wrap', fontSize: '1rem', color: 'var(--text-muted)' }}>
               <span>بشر جرار</span>
-              <span>•</span>
               <span>رضوان منذر</span>
+              <span style={{ color: 'var(--accent-orange)', fontWeight: '700' }}>بإشراف: أ.د. صهيب سيد</span>
             </div>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '16px' }}>
-              تحت إشراف <strong>أ.د. صهيب سيد</strong>
-            </p>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-              © 2024 جميع الحقوق محفوظة
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '24px', opacity: 0.8 }}>
+              © 2026 جميع الحقوق محفوظة • منصة إماراتية ذكية للشمول الرقمي 🇦🇪
             </p>
           </div>
         </div>

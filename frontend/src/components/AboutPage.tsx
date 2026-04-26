@@ -6,13 +6,9 @@ export default function AboutPage() {
           من نحن؟ 👋
         </h1>
 
-        <div className="glass-strong" style={{ padding: '40px', borderRadius: 'var(--radius-xl)', marginBottom: '32px' }}>
-          <h2 style={{ fontSize: '1.5rem', marginBottom: '16px', color: 'var(--text-primary)' }}>
-            منصة إشارة - الجسر بين لغة الإشارة والتواصل
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', lineHeight: '1.8', marginBottom: '16px', fontSize: '1rem' }}>
-            منصة إشارة هي منصة تقنية متقدمة تهدف إلى تحسين التواصل والتفاهم بين الأشخاص الصم والبكم والمجتمع العام. 
-            نحن نؤمن بأن التكنولوجيا يمكن أن تكون جسراً قوياً لتسهيل التواصل والتعليم.
+        <div className="glass-strong" style={{ padding: '40px', borderRadius: 'var(--radius-xl)', marginBottom: '32px', textAlign: 'center' }}>
+          <p style={{ color: 'var(--text-primary)', lineHeight: '1.8', fontSize: '1.2rem', fontWeight: '500' }}>
+            نسعى لتمكين الصم والبكم من خلال تقنيات الذكاء الاصطناعي الأكثر تطوراً وأماناً.
           </p>
         </div>
 
@@ -94,54 +90,55 @@ export default function AboutPage() {
           }}>
             <div style={{ textAlign: 'center', padding: '20px' }}>
               <div style={{
-                width: '80px',
-                height: '80px',
+                width: '100px',
+                height: '100px',
                 borderRadius: '50%',
                 background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))',
                 margin: '0 auto 16px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '2rem'
+                fontSize: '2.5rem',
+                boxShadow: 'var(--shadow-glow)'
               }}>
                 👨‍💼
               </div>
-              <h3 style={{ marginBottom: '4px', color: 'var(--text-primary)' }}>بشر جرار</h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>مطور الذكاء الاصطناعي</p>
+              <h3 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', fontWeight: '800' }}>بشر جرار</h3>
             </div>
             <div style={{ textAlign: 'center', padding: '20px' }}>
               <div style={{
-                width: '80px',
-                height: '80px',
+                width: '100px',
+                height: '100px',
                 borderRadius: '50%',
                 background: 'linear-gradient(135deg, var(--accent-purple), var(--accent-blue))',
                 margin: '0 auto 16px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '2rem'
+                fontSize: '2.5rem',
+                boxShadow: '0 0 30px rgba(139, 92, 246, 0.3)'
               }}>
                 👨‍💻
               </div>
-              <h3 style={{ marginBottom: '4px', color: 'var(--text-primary)' }}>رضوان منذر</h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>مطور الويب والتطبيقات</p>
+              <h3 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', fontWeight: '800' }}>رضوان منذر</h3>
             </div>
             <div style={{ textAlign: 'center', padding: '20px' }}>
               <div style={{
-                width: '80px',
-                height: '80px',
+                width: '100px',
+                height: '100px',
                 borderRadius: '50%',
                 background: 'linear-gradient(135deg, var(--accent-orange), var(--accent-red))',
                 margin: '0 auto 16px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '2rem'
+                fontSize: '2.5rem',
+                boxShadow: '0 0 30px rgba(245, 158, 11, 0.3)'
               }}>
                 👨‍🏫
               </div>
-              <h3 style={{ marginBottom: '4px', color: 'var(--text-primary)' }}>أ.د. صهيب سيد</h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>المشرف والموجه الأكاديمي</p>
+              <h3 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', fontWeight: '800' }}>أ.د. صهيب سيد</h3>
+              <p style={{ color: 'var(--accent-orange)', fontSize: '0.95rem', fontWeight: '700', marginTop: '4px' }}>المشرف الأكاديمي</p>
             </div>
           </div>
         </div>
