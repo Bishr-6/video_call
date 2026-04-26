@@ -1117,6 +1117,11 @@ export function classifyGesture(landmarks: HandLandmark[], mode: DetectionMode =
       if (mode === 'action' && g.category === 'word') { /* allow words in action mode */ }
       else if (mode === 'word' && g.category === 'action') { /* allow actions in word mode */ }
       else if (g.category !== mode) continue;
+    } else {
+      // In 'all' mode, heavily penalize numbers to prevent them from overriding letters
+      // if the user is trying to sign a letter but misses a distance check.
+      // If they want numbers, they MUST use the 'number' mode.
+      if (g.category === 'number') continue;
     }
 
     const conf = g.match(landmarks, fs);

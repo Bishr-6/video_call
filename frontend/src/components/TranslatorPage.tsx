@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision'
-import { classifyGesture, processGestureStream, resetBuffer, getAllGestures, type ClassificationResult } from './SignLanguageClassifier'
+import { classifyGesture, processGestureStream, resetBuffer, getAllGestures, type ClassificationResult, type DetectionMode } from './SignLanguageClassifier'
 import SourcesPanel from './SourcesPanel'
 
 export default function TranslatorPage() {
@@ -15,6 +15,7 @@ export default function TranslatorPage() {
   const [wordBuffer, setWordBuffer] = useState('')
   const [translatedTexts, setTranslatedTexts] = useState<string[]>([])
   const [showLibrary, setShowLibrary] = useState(false)
+  const [detectionMode, setDetectionMode] = useState<DetectionMode>('all')
 
   const allGestures = getAllGestures()
   const letters = allGestures.filter(g => g.category === 'letter')
@@ -120,7 +121,7 @@ export default function TranslatorPage() {
 
       // Classify
       if (results.landmarks.length > 0) {
-        const stream = processGestureStream(results.landmarks[0] as any)
+        const stream = processGestureStream(results.landmarks[0] as any, detectionMode)
         setCurrentGesture(stream.currentGesture)
         setWordBuffer(stream.currentWord)
         if (stream.confirmedWord) {
@@ -219,16 +220,28 @@ export default function TranslatorPage() {
           )}
         </div>
 
-        {/* Controls */}
-        <div className="call-controls">
-          {isActive ? (
-            <button className="btn btn-danger" onClick={stopCamera}>⏹️ إيقاف</button>
-          ) : (
-            <button className="btn btn-primary" onClick={startCamera} disabled={isLoading}>🚀 تشغيل الكاميرا</button>
-          )}
-          <button className="btn btn-ghost" onClick={() => setShowLibrary(!showLibrary)}>
-            📚 {showLibrary ? 'إخفاء' : 'عرض'} مكتبة الإشارات
-          </button>
+        {/* Mode Selector & Controls */}
+        <div className="glass-strong p-4 flex flex-col gap-4 mt-4" style={{ borderRadius: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>🎯 نمط الترجمة (اختر لتجنب الخلط)</h4>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <button className={`btn btn-sm ${detectionMode === 'all' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('all')}>🌐 الكل</button>
+            <button className={`btn btn-sm ${detectionMode === 'letter' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('letter')}>🔤 حروف فقط</button>
+            <button className={`btn btn-sm ${detectionMode === 'number' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('number')}>🔢 أرقام فقط</button>
+            <button className={`btn btn-sm ${detectionMode === 'action' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('action')}>🎬 أفعال وكلمات</button>
+          </div>
+
+          <div className="call-controls" style={{ padding: 0, marginTop: 8 }}>
+            {isActive ? (
+              <button className="btn btn-danger" onClick={stopCamera}>⏹️ إيقاف الكاميرا</button>
+            ) : (
+              <button className="btn btn-primary" onClick={startCamera} disabled={isLoading}>🚀 تشغيل الكاميرا</button>
+            )}
+            <button className="btn btn-ghost" onClick={() => setShowLibrary(!showLibrary)}>
+              📚 {showLibrary ? 'إخفاء' : 'عرض'} القاموس ({allGestures.length} إشارة)
+            </button>
+          </div>
         </div>
 
         {/* Translated Output */}
