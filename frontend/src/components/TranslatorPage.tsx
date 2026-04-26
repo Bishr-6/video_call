@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision'
 import { classifyGesture, processGestureStream, resetBuffer, getAllGestures, type ClassificationResult, type DetectionMode } from './SignLanguageClassifier'
-import SourcesPanel from './SourcesPanel'
 
 export default function TranslatorPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -318,7 +317,7 @@ export default function TranslatorPage() {
           <div className="privacy-badge">🔒 الكاميرا تعمل محلياً فقط • لا يتم إرسال أي فيديو</div>
         </div>
 
-        <SourcesPanel />
+
       </div>
     </div>
   )

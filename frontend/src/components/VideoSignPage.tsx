@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react'
-import SourcesPanel from './SourcesPanel'
 
 type Platform = 'youtube' | 'tiktok' | 'reels' | 'other'
 type Stage = 'idle' | 'processing' | 'done' | 'error'
@@ -476,7 +475,7 @@ export default function VideoSignPage() {
               </button>
             </div>
 
-            <SourcesPanel />
+
           </div>
         )}
 
@@ -498,7 +497,7 @@ export default function VideoSignPage() {
           </div>
         )}
 
-        {stage === 'idle' && <SourcesPanel />}
+
       </div>
     </div>
   )

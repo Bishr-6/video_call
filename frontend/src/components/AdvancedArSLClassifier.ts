@@ -110,17 +110,8 @@ export class AdvancedArSLClassifier {
     // For demonstration, we simulate the inference pass.
 
     try {
-      // Mock data tensor that matches the input shape
-      const inputTensor = tf.zeros([1, this.sequenceLength, this.numFeatures]);
-      
-      // Warm-up execution to ensure graph is built
-      const prediction = this.model.predict(inputTensor) as tf.Tensor;
-      prediction.dispose();
-      inputTensor.dispose();
-      
-      // Since we don't have pre-trained weights deployed to Vercel yet, 
-      // we return null to let the heuristic fallback take over, 
-      // BUT the model architecture is actively running in the client.
+      // Disabled heavy per-frame inference to prevent UI freezing
+      // until the model is optimized or switched to a throttled approach.
       return null;
     } catch (e) {
       console.error('Inference error:', e);
