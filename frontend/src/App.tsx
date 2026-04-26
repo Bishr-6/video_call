@@ -204,36 +204,13 @@ function App() {
               </ul>
             </div>
             <div>
-              <h4 style={{ marginBottom: '16px', color: 'var(--text-primary)', fontWeight: '800' }}>التواصل المباشر</h4>
+              <h4 style={{ marginBottom: '16px', color: 'var(--text-primary)', fontWeight: '800' }}>روابط سريعة</h4>
               <ul style={{ listStyle: 'none', padding: 0 }}>
                 <li style={{ marginBottom: '12px' }}>
-                  <a 
-                    href="mailto:bishrjr37@gmail.com"
-                    style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.95rem' }}
-                  >
-                    ✉️ bishrjr37@gmail.com
-                  </a>
+                  <button onClick={() => setCurrentPage('about')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'var(--font-ar)' }}>معلومات عنا</button>
                 </li>
                 <li>
-                  <a 
-                    href="https://wa.me/971502406519"
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ 
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      color: 'white',
-                      background: '#25D366',
-                      padding: '8px 16px',
-                      borderRadius: 'var(--radius-md)',
-                      textDecoration: 'none',
-                      fontSize: '0.9rem',
-                      fontWeight: '700'
-                    }}
-                  >
-                    💬 واتساب: 0502406519
-                  </a>
+                  <button onClick={() => setCurrentPage('terms')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'var(--font-ar)' }}>الشروط والأحكام</button>
                 </li>
               </ul>
             </div>

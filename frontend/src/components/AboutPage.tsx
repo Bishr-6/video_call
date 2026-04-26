@@ -142,6 +142,49 @@ export default function AboutPage() {
             </div>
           </div>
         </div>
+
+        <div className="glass-strong" style={{ padding: '40px', borderRadius: 'var(--radius-xl)', marginTop: '40px', textAlign: 'center' }}>
+          <h2 style={{ fontSize: '1.5rem', marginBottom: '24px', color: 'var(--text-primary)' }}>
+            تواصل معنا 📞
+          </h2>
+          <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <a 
+              href="https://wa.me/971502406519"
+              target="_blank"
+              rel="noreferrer"
+              style={{ 
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                background: '#25D366',
+                color: 'white',
+                padding: '12px 24px',
+                borderRadius: 'var(--radius-md)',
+                textDecoration: 'none',
+                fontWeight: '700'
+              }}
+            >
+              💬 واتساب: 0502406519
+            </a>
+            <a 
+              href="mailto:bishrjr37@gmail.com"
+              style={{ 
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid var(--border-glass)',
+                color: 'var(--text-primary)',
+                padding: '12px 24px',
+                borderRadius: 'var(--radius-md)',
+                textDecoration: 'none',
+                fontWeight: '600'
+              }}
+            >
+              ✉️ bishrjr37@gmail.com
+            </a>
+          </div>
+        </div>
       </div>
     </div>
   )

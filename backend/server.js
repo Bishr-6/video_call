@@ -525,8 +525,8 @@ app.post('/api/safefriend/generate-image', async (req, res) => {
       return res.status(400).json({ success: false, error: 'الوصف مطلوب أو OpenAI غير متوفر' });
     }
 
-    // Get client identifier (for demo, use IP or session)
-    const clientId = req.ip || 'demo';
+    // Get client identifier (check x-forwarded-for for proxies like Vercel)
+    const clientId = req.headers['x-forwarded-for']?.split(',')[0] || req.ip || 'demo';
     const today = new Date().toDateString();
     const key = `${clientId}-${today}`;
 
@@ -581,7 +581,7 @@ app.post('/api/safefriend/generate-image', async (req, res) => {
 
 // Get SafeFriend status (remaining images)
 app.get('/api/safefriend/status', (req, res) => {
-  const clientId = req.ip || 'demo';
+  const clientId = req.headers['x-forwarded-for']?.split(',')[0] || req.ip || 'demo';
   const today = new Date().toDateString();
   const key = `${clientId}-${today}`;
   const count = imageCountStore.get(key) || 0;
