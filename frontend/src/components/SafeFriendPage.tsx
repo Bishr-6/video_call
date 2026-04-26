@@ -36,6 +36,12 @@ const SYSTEM_PROMPT = `أنت "صديقي الآمن" - مساعد نفسي ذك
 
 const DISTRESS_KEYWORDS = ['احزن', 'مكتئب', 'أؤذي', 'ميؤوس', 'انتحاري', 'تحمل', 'أموت', 'أنهي', 'ألم', 'معاناة'];
 
+function getServerUrl() {
+  const rawUrl = (import.meta as any).env?.VITE_SERVER_URL || 'http://localhost:5000'
+  return rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`
+}
+
+
 export default function SafeFriendPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
