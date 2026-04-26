@@ -88,7 +88,7 @@ export default function SafeFriendPage() {
     }
 
     try {
-      const response = await fetch('/api/safefriend/chat', {
+      const response = await fetch(`${getServerUrl()}/api/safefriend/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -130,7 +130,7 @@ export default function SafeFriendPage() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/safefriend/generate-image', {
+      const response = await fetch(`${getServerUrl()}/api/safefriend/generate-image`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: imagePrompt })
