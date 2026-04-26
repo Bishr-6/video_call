@@ -69,6 +69,22 @@ export default function SafeFriendPage() {
     scrollToBottom()
   }, [messages])
 
+  // Fetch remaining images on load
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const response = await fetch(`${getServerUrl()}/api/safefriend/status`)
+        const data = await response.json()
+        if (data.success) {
+          setImagesRemaining(data.remaining)
+        }
+      } catch (error) {
+        console.error('Error fetching status:', error)
+      }
+    }
+    fetchStatus()
+  }, [])
+
   const checkForDistress = (text: string) => {
     return DISTRESS_KEYWORDS.some(keyword => text.includes(keyword))
   }
@@ -152,14 +168,14 @@ export default function SafeFriendPage() {
           timestamp: new Date()
         }
         setGeneratedImages(prev => [...prev, newImage])
-        setImagesRemaining(prev => prev - 1)
+        setImagesRemaining(data.remaining) // Use value from server
         setImagePrompt('')
 
         // Add bot message about image
         const botMessage: Message = {
           id: (Date.now() + 3).toString(),
           sender: 'bot',
-          text: `تم إنشاء الصورة بنجاح! 🎨\n\nوصفك: "${imagePrompt}"\n\nبقي لك ${imagesRemaining - 1} صور يمكنك إنشاؤها اليوم.`,
+          text: `تم إنشاء الصورة بنجاح! 🎨\n\nوصفك: "${imagePrompt}"\n\nبقي لك ${data.remaining} صور يمكنك إنشاؤها اليوم.`,
           timestamp: new Date()
         }
         setMessages(prev => [...prev, botMessage])

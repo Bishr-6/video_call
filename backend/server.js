@@ -579,6 +579,21 @@ app.post('/api/safefriend/generate-image', async (req, res) => {
   }
 });
 
+// Get SafeFriend status (remaining images)
+app.get('/api/safefriend/status', (req, res) => {
+  const clientId = req.ip || 'demo';
+  const today = new Date().toDateString();
+  const key = `${clientId}-${today}`;
+  const count = imageCountStore.get(key) || 0;
+  
+  return res.json({
+    success: true,
+    remaining: Math.max(0, 3 - count),
+    today
+  });
+});
+
+
 // ══════════════════════════════════════════════════════════════════
 // ██  SOCKET.IO (Video Call)  █████████████████████████████████████
 // ══════════════════════════════════════════════════════════════════

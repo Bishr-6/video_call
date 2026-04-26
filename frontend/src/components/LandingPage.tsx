@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { getAllGestures } from './SignLanguageClassifier'
 
 interface LandingPageProps {
-  onNavigate: (page: 'translator' | 'videocall' | 'videosign') => void
+  onNavigate: (page: 'translator' | 'videocall' | 'videosign' | 'safefriend') => void
 }
 
 export default function LandingPage({ onNavigate }: LandingPageProps) {
@@ -50,8 +50,8 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
           <button className="btn btn-success btn-lg" onClick={() => onNavigate('videocall')}>
             📹 مكالمة فيديو ذكية
           </button>
-          <button className="btn btn-lg" style={{ background: 'linear-gradient(135deg,#f59e0b,#8b5cf6)', color: 'white', boxShadow: '0 4px 20px rgba(245,158,11,0.4)' }} onClick={() => onNavigate('videosign')}>
-            🎬 فيديو → إشارة
+          <button className="btn btn-lg" style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)', color: 'white', boxShadow: '0 4px 20px rgba(6,182,212,0.4)' }} onClick={() => onNavigate('safefriend')}>
+            💙 صديقي الآمن
             <span style={{ fontSize: '0.65rem', background: 'rgba(255,255,255,0.25)', padding: '2px 6px', borderRadius: '999px', marginRight: 6 }}>جديد</span>
           </button>
         </div>
@@ -105,7 +105,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
           { icon: '📹', title: 'مكالمات فيديو P2P', desc: 'اتصال مباشر بين المستخدمين عبر WebRTC - مشفر ومحمي بالكامل' },
           { icon: '🎤', title: 'تحويل الصوت لنص', desc: 'يحول كلام المتحدث إلى نص يظهر فوراً للشخص الأصم - تواصل ثنائي الاتجاه' },
           { icon: '🌐', title: 'دعم عربي كامل', desc: 'واجهة عربية بالكامل مع دعم جميع حروف لغة الإشارة العربية' },
-          { icon: '🎬', title: 'فيديو → إشارة (جديد)', desc: 'حوّل أي فيديو يوتيوب أو تيك توك إلى لغة إشارة مع أفاتار متحرك تفاعلي بالذكاء الاصطناعي' },
+          { icon: '💙', title: 'صديقي الآمن (جديد)', desc: 'مساعد نفسي وداعم ذكي للطلاب في فترات الضغوط الدراسية - دعم فوري وخصوصية تامة' },
         ].map((f, i) => (
           <div key={i} className="feature-card glass">
             <div className="feature-icon">{f.icon}</div>
