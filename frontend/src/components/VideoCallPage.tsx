@@ -60,6 +60,13 @@ export default function VideoCallPage() {
   const [isListening, setIsListening] = useState(false)
   const [receivedSignSequence, setReceivedSignSequence] = useState<string[]>([])
   const [detectionMode, setDetectionMode] = useState<DetectionMode>('all')
+  const detectionModeRef = useRef<DetectionMode>('all')
+
+  const handleModeChange = (mode: DetectionMode) => {
+    setDetectionMode(mode)
+    detectionModeRef.current = mode
+  }
+
   const [advancedClassifier, setAdvancedClassifier] = useState<AdvancedArSLClassifier | null>(null)
   const [aiModelStatus, setAiModelStatus] = useState<'loading' | 'ready' | 'failed'>('loading')
 
@@ -312,11 +319,11 @@ export default function VideoCallPage() {
                 }
               } else {
                 // Fallback to the huge dictionary
-                res = processGestureStream(results.landmarks[0] as any, detectionMode)
+                res = processGestureStream(results.landmarks[0] as any, detectionModeRef.current)
               }
             } else {
               // Basic Heuristic Mode (The huge dictionary)
-              res = processGestureStream(results.landmarks[0] as any, detectionMode)
+              res = processGestureStream(results.landmarks[0] as any, detectionModeRef.current)
             }
 
             currentGestureRef.current = res.currentGesture
@@ -514,10 +521,10 @@ export default function VideoCallPage() {
                 </span>
               </div>
               <div className="flex gap-2 flex-wrap mt-2">
-                <button className={`btn btn-sm ${detectionMode === 'all' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('all')}>🌐 الكل</button>
-                <button className={`btn btn-sm ${detectionMode === 'letter' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('letter')}>🔤 حروف</button>
-                <button className={`btn btn-sm ${detectionMode === 'number' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('number')}>🔢 أرقام</button>
-                <button className={`btn btn-sm ${detectionMode === 'action' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('action')}>🎬 أفعال</button>
+                <button className={`btn btn-sm ${detectionMode === 'all' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => handleModeChange('all')}>🌐 الكل</button>
+                <button className={`btn btn-sm ${detectionMode === 'letter' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => handleModeChange('letter')}>🔤 حروف</button>
+                <button className={`btn btn-sm ${detectionMode === 'number' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => handleModeChange('number')}>🔢 أرقام</button>
+                <button className={`btn btn-sm ${detectionMode === 'action' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => handleModeChange('action')}>🎬 أفعال</button>
               </div>
             </div>
 

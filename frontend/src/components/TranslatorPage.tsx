@@ -16,11 +16,12 @@ export default function TranslatorPage() {
   const [translatedTexts, setTranslatedTexts] = useState<string[]>([])
   const [showLibrary, setShowLibrary] = useState(false)
   const [detectionMode, setDetectionMode] = useState<DetectionMode>('all')
+  const detectionModeRef = useRef<DetectionMode>('all')
 
   const allGestures = getAllGestures()
   const letters = allGestures.filter(g => g.category === 'letter')
   const numbers = allGestures.filter(g => g.category === 'number')
-  const words = allGestures.filter(g => g.category === 'word' || g.category === 'phrase')
+  const words = allGestures.filter(g => g.category === 'word' || g.category === 'phrase' || g.category === 'action')
 
   const startCamera = useCallback(async () => {
     setIsLoading(true)
@@ -121,7 +122,7 @@ export default function TranslatorPage() {
 
       // Classify
       if (results.landmarks.length > 0) {
-        const stream = processGestureStream(results.landmarks[0] as any, detectionMode)
+        const stream = processGestureStream(results.landmarks[0] as any, detectionModeRef.current)
         setCurrentGesture(stream.currentGesture)
         setWordBuffer(stream.currentWord)
         if (stream.confirmedWord) {
@@ -165,6 +166,11 @@ export default function TranslatorPage() {
     }
   }
 
+  const handleModeChange = (mode: DetectionMode) => {
+    setDetectionMode(mode)
+    detectionModeRef.current = mode
+  }
+
   return (
     <div className="page">
       <div className="translator-container">
@@ -193,7 +199,7 @@ export default function TranslatorPage() {
           {isLoading && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(10,14,26,0.9)' }}>
               <div className="matching-spinner" />
-              <p>جاري تحميل نموذج الذكاء الاصطناعي...</p>
+              <p>جاري تحميل النموذج الذكي...</p>
             </div>
           )}
 
@@ -226,10 +232,10 @@ export default function TranslatorPage() {
             <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>🎯 نمط الترجمة (اختر لتجنب الخلط)</h4>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <button className={`btn btn-sm ${detectionMode === 'all' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('all')}>🌐 الكل</button>
-            <button className={`btn btn-sm ${detectionMode === 'letter' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('letter')}>🔤 حروف فقط</button>
-            <button className={`btn btn-sm ${detectionMode === 'number' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('number')}>🔢 أرقام فقط</button>
-            <button className={`btn btn-sm ${detectionMode === 'action' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('action')}>🎬 أفعال وكلمات</button>
+            <button className={`btn btn-sm ${detectionMode === 'all' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => handleModeChange('all')}>🌐 الكل</button>
+            <button className={`btn btn-sm ${detectionMode === 'letter' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => handleModeChange('letter')}>🔤 حروف فقط</button>
+            <button className={`btn btn-sm ${detectionMode === 'number' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => handleModeChange('number')}>🔢 أرقام فقط</button>
+            <button className={`btn btn-sm ${detectionMode === 'action' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => handleModeChange('action')}>🎬 أفعال وكلمات</button>
           </div>
 
           <div className="call-controls" style={{ padding: 0, marginTop: 8 }}>

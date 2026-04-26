@@ -11,7 +11,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
   useEffect(() => {
     const all = getAllGestures()
     const letters = all.filter(g => g.category === 'letter').length
-    const words = all.filter(g => g.category === 'word' || g.category === 'phrase').length
+    const words = all.filter(g => g.category === 'word' || g.category === 'phrase' || g.category === 'action').length
     // Animate counter
     let i = 0
     const interval = setInterval(() => {

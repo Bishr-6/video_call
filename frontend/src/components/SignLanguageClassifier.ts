@@ -229,6 +229,12 @@ export const GESTURES: GestureDef[] = [
     }
     return 0;
   }},
+  { name: 'TaMarbuta', arabic: 'ة', category: 'letter', match: (lm, fs) => {
+    if (fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) {
+      if (fingersTouching(lm, THUMB_TIP, INDEX_MCP, 0.05)) return 0.7;
+    }
+    return 0;
+  }},
 
   // === NUMBERS ===
   { name: 'Zero', arabic: '٠', category: 'number', match: (_lm, fs) => {
@@ -255,8 +261,42 @@ export const GESTURES: GestureDef[] = [
     if (fs.index && fs.middle && fs.ring && fs.pinky && fs.thumb) return 0.65;
     return 0;
   }},
+  { name: 'Six', arabic: '٦', category: 'number', match: (lm, fs) => {
+    if (!fs.pinky && fs.index && fs.middle && fs.ring && fs.thumb) return 0.65;
+    return 0;
+  }},
+  { name: 'Seven', arabic: '٧', category: 'number', match: (lm, fs) => {
+    if (!fs.ring && fs.index && fs.middle && fs.pinky && fs.thumb) return 0.65;
+    return 0;
+  }},
+  { name: 'Eight', arabic: '٨', category: 'number', match: (lm, fs) => {
+    if (!fs.middle && fs.index && fs.ring && fs.pinky && fs.thumb) return 0.65;
+    return 0;
+  }},
+  { name: 'Nine', arabic: '٩', category: 'number', match: (lm, fs) => {
+    if (!fs.index && fs.middle && fs.ring && fs.pinky && fs.thumb) return 0.65;
+    return 0;
+  }},
+  { name: 'Ten', arabic: '١٠', category: 'number', match: (lm, fs) => {
+    if (fs.thumb && !fs.index && !fs.middle && !fs.ring && !fs.pinky) {
+      if (lm[THUMB_TIP].x > lm[THUMB_MCP].x) return 0.7; // Thumb pointing sideways
+    }
+    return 0;
+  }},
 
   // === COMMON WORDS & PHRASES ===
+  { name: 'La', arabic: 'لا', category: 'word', match: (lm, fs) => {
+    if (fs.index && fs.thumb && !fs.middle && !fs.ring && !fs.pinky) {
+      if (dist(lm[INDEX_TIP], lm[THUMB_TIP]) > 0.15) return 0.75;
+    }
+    return 0;
+  }},
+  { name: 'Al', arabic: 'ال', category: 'word', match: (lm, fs) => {
+    if (fs.index && fs.middle && !fs.ring && !fs.pinky && fs.thumb) {
+      if (dist(lm[INDEX_TIP], lm[MIDDLE_TIP]) < 0.05) return 0.75;
+    }
+    return 0;
+  }},
   { name: 'Hello', arabic: 'مرحبا', category: 'word', match: (lm, fs) => {
     if (fs.index && fs.middle && fs.ring && fs.pinky && fs.thumb) {
       const palmForward = lm[MIDDLE_MCP].z < lm[WRIST].z;
