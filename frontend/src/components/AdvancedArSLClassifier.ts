@@ -24,7 +24,8 @@ export class AdvancedArSLClassifier {
   ];
 
   constructor() {
-    this.buildModel();
+    // Disabled model building to prevent UI freezing due to heavy weight initialization
+    // this.buildModel();
   }
 
   /**
