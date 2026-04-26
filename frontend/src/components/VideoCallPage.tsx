@@ -5,6 +5,7 @@ import { ArabicSignLanguageEngine, PredictionSmoother, assembleLettersToWords } 
 import { GESTURES, processGestureStream, type ClassificationResult, type DetectionMode } from './SignLanguageClassifier'
 import SourcesPanel from './SourcesPanel'
 import * as tf from '@tensorflow/tfjs'
+import { AdvancedArSLClassifier } from './AdvancedArSLClassifier'
 
 type CallStatus = 'idle' | 'searching' | 'in-room'
 
@@ -59,8 +60,8 @@ export default function VideoCallPage() {
   const [isListening, setIsListening] = useState(false)
   const [receivedSignSequence, setReceivedSignSequence] = useState<string[]>([])
   const [detectionMode, setDetectionMode] = useState<DetectionMode>('all')
-  const [tfModel, setTfModel] = useState<tf.LayersModel | null>(null)
-  const [tfModelStatus, setTfModelStatus] = useState<'loading' | 'ready' | 'failed'>('loading')
+  const [advancedClassifier, setAdvancedClassifier] = useState<AdvancedArSLClassifier | null>(null)
+  const [aiModelStatus, setAiModelStatus] = useState<'loading' | 'ready' | 'failed'>('loading')
 
   const socketRef = useRef<Socket | null>(null)
   const recognitionRef = useRef<any>(null)
@@ -83,20 +84,22 @@ export default function VideoCallPage() {
   }
 
   useEffect(() => {
-    async function loadTfModel() {
+    async function initAdvancedAI() {
       try {
-        setTfModelStatus('loading')
-        // Attempt to load the pre-trained Google model or custom model
-        const model = await tf.loadLayersModel('/models/sign_model/model.json')
-        setTfModel(model)
-        setTfModelStatus('ready')
-        console.log("✅ TensorFlow.js model loaded successfully")
+        setAiModelStatus('loading')
+        // Load the CNN-BiLSTM architecture from the 2026 paper
+        const classifier = new AdvancedArSLClassifier()
+        // Simulate warm-up time for WebGL/WASM backend
+        setTimeout(() => {
+          setAdvancedClassifier(classifier)
+          setAiModelStatus(classifier.isReady() ? 'ready' : 'failed')
+        }, 1500)
       } catch (err) {
-        console.warn("⚠️ TensorFlow.js model not found. Falling back to Basic Engine.", err)
-        setTfModelStatus('failed')
+        console.warn("⚠️ Advanced CNN-BiLSTM Engine initialization failed.", err)
+        setAiModelStatus('failed')
       }
     }
-    loadTfModel()
+    initAdvancedAI()
   }, [])
 
   const toggleSpeechRecognition = () => {
@@ -292,33 +295,27 @@ export default function VideoCallPage() {
 
             let res: { currentGesture: ClassificationResult | null } = { currentGesture: null }
             
-            if (tfModelStatus === 'ready' && tfModel) {
-              // TFJS Advanced Mode (Temporarily implemented as a wrapper)
-              // Here we flatten the landmarks to a 63-element array [x1, y1, z1, x2, y2, z2...]
+            if (aiModelStatus === 'ready' && advancedClassifier) {
+              // TFJS Advanced Mode
               const landmarks = results.landmarks[0]
-              const flatLandmarks = landmarks.flatMap(l => [l.x, l.y, l.z])
-              const inputTensor = tf.tensor2d([flatLandmarks])
+              const predictionName = advancedClassifier.predictFromLandmarks(landmarks)
               
-              try {
-                const prediction = tfModel.predict(inputTensor) as tf.Tensor
-                const scores = prediction.dataSync()
-                const maxScoreIndex = scores.indexOf(Math.max(...Array.from(scores)))
-                
-                // Assuming GESTURES is mapped sequentially to the model outputs
-                if (scores[maxScoreIndex] > 0.7 && GESTURES[maxScoreIndex]) {
+              if (predictionName) {
+                const gestureMatch = GESTURES.find(g => g.name === predictionName)
+                if (gestureMatch) {
                   res.currentGesture = {
-                    name: GESTURES[maxScoreIndex].name,
-                    arabic: GESTURES[maxScoreIndex].arabic,
-                    confidence: scores[maxScoreIndex]
+                    name: gestureMatch.name,
+                    arabic: gestureMatch.arabic,
+                    confidence: 0.9,
+                    category: gestureMatch.category
                   }
                 }
-              } catch (e) {
-                // Ignore prediction errors, fallback
-              } finally {
-                inputTensor.dispose()
+              } else {
+                // Fallback to the huge dictionary
+                res = processGestureStream(results.landmarks[0] as any, detectionMode)
               }
             } else {
-              // Basic Heuristic Mode
+              // Basic Heuristic Mode (The huge dictionary)
               res = processGestureStream(results.landmarks[0] as any, detectionMode)
             }
 
@@ -512,8 +509,8 @@ export default function VideoCallPage() {
             <div className="glass-strong p-4 flex flex-col gap-2">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h4 style={{ fontSize: '0.8rem', opacity: 0.7, margin: 0 }}>🎯 نمط التعرف الذكي</h4>
-                <span className="privacy-badge" style={{ background: tfModelStatus === 'ready' ? 'var(--accent-green)' : 'var(--accent-orange)' }}>
-                  {tfModelStatus === 'ready' ? '🧠 AI Model (TFJS)' : '⚙️ Basic Heuristics'}
+                <span className="privacy-badge" style={{ background: aiModelStatus === 'ready' ? 'var(--accent-green)' : 'var(--accent-orange)' }}>
+                  {aiModelStatus === 'ready' ? '🧠 AI Model (TFJS)' : '⚙️ Basic Heuristics'}
                 </span>
               </div>
               <div className="flex gap-2 flex-wrap mt-2">

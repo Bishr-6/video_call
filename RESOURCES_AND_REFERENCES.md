@@ -196,8 +196,76 @@ docker run -p 5000:5000    # تشغيل الحاوية
 ❌ Port already in use
 ✅ تحديد Port مختلف أو استخدام kill-port
 
+❌ Port already in use
+✅ تحديد Port مختلف أو استخدام kill-port
+
 ❌ npm ERR! (Missing package)
 ✅ حذف node_modules و .lock file وإعادة install
+```
+
+---
+
+## 📚 البحث العلمي والأوراق البحثية
+
+### أنظمة التعرف على لغة الإشارة العربية
+
+#### 1. **Static Arabic Sign Language Recognition in Real Time Using Machine Learning and MediaPipe**
+- **المؤلفون**: Software Impacts / SIMPAC-2025-43
+- **المؤتمر**: 2024 1st International Conference on Emerging Technologies for Dependable Internet of Things (ICETI)
+- **الناشر**: IEEE
+- **تاريخ النشر**: 2024
+- **DOI**: [10.1109/ICETI63946.2024.10777193](https://doi.org/10.1109/ICETI63946.2024.10777193)
+- **المنهجية**: SVM + MediaPipe للتعرف على 42 إشارة (أحرف + أرقام + كلمات شائعة)
+- **المستودع**: https://github.com/SoftwareImpacts/SIMPAC-2025-43
+
+#### 2. **Arabic Sign Language Detection System**
+- **المؤلفة**: Chaima Mansouri
+- **المنصة**: GitHub
+- **المستودع**: https://github.com/ChaimaMansouri/Arabic-Sign-Language-Detection
+- **المنهجية**: نظام شامل لكشف لغة الإشارة العربية
+- **الميزات**: نموذج مدرب + تطبيق + بيانات تجريبية
+
+### تقنيات التعرف على الإشارات
+
+#### MediaPipe في التعرف على الإشارات
+- **الورقة**: [MediaPipe Hands: On-device Real-time Hand Tracking](https://arxiv.org/abs/2006.10214)
+- **التطبيق**: استخراج 21 نقطة مميزة لكل يد
+- **الدقة**: >95% في التتبع اليدوي
+
+#### Machine Learning للتصنيف
+- **SVM**: فعال في التصنيف متعدد الفئات
+- **CNN**: للمعالجة التلقائية للميزات
+- **LSTM**: للتعرف على التسلسلات الزمنية
+
+### قواعد البيانات المتاحة
+
+#### قواعد البيانات العربية
+- **KArSL**: 502 كلمة من لغة الإشارة العربية
+- **ArASL2018**: 32 حرف عربي من 54,049 صورة
+- **ArYSL**: اللهجة اليمنية - 32 إشارة + 357 كلمة
+- **ArabSign**: جمل متصلة - 50 جملة من 9,335 عينة
+
+### اتجاهات البحث الحالية
+
+#### 1. **التعرف في الوقت الفعلي (Real-time Recognition)**
+- استخدام MediaPipe للتتبع السريع
+- معالجة الفيديو المباشر
+- تقليل زمن الاستجابة
+
+#### 2. **التعرف على الجمل الكاملة (Continuous Sign Language Recognition)**
+- دمج الإشارات في جمل متصلة
+- فهم السياق والقواعد
+- استخدام نماذج التسلسل (LSTM, Transformer)
+
+#### 3. **التعلم العميق (Deep Learning)**
+- CNN لاستخراج الميزات
+- RNN/LSTM للتسلسلات
+- Transformer للترجمة
+
+#### 4. **التطبيقات العملية**
+- تطبيقات الهواتف الذكية
+- أنظمة المساعدة للمكفوفين
+- التعليم والتدريب
 
 ❌ Out of memory
 ✅ زيادة حد الذاكرة: node --max-old-space-size=4096

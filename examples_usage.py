@@ -152,9 +152,28 @@ def example_5_train_multi_source():
     
     print("\n✅ اكتمل التدريب!")
 
-# ==================== مثال 6: معالجة مخصصة بخيارات متقدمة ====================
+# ==================== مثال 6: معالجة فئات قاموس لغة الإشارة الإماراتي ====================
 
-def example_6_advanced_options():
+def example_6_process_uae_dictionary():
+    """
+    مثال: معالجة فئات قاموس لغة الإشارة الإماراتي من مجلد الصور.
+    """
+    print("\n" + "="*70)
+    print("مثال 6: معالجة فئات قاموس لغة الإشارة الإماراتي")
+    print("="*70)
+
+    from ml_pipeline.process_uae_categories import process_uae_category_images
+
+    process_uae_category_images(
+        base_dir='./external_data/UAE_Sign_Dictionary',
+        output_dir='MP_Data'
+    )
+
+    print("✅ انتهت معالجة فئات القاموس الإماراتي")
+
+# ==================== مثال 7: معالجة مخصصة بخيارات متقدمة ====================
+
+def example_7_advanced_options():
     """
     مثال: معالجة مع خيارات متقدمة
     """

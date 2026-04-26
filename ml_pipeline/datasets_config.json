@@ -89,6 +89,41 @@
       }
     },
     {
+      "name": "UAE_Sign_Dictionary",
+      "description": "فئات قاموس لغة الإشارة الإماراتي - صور أو فيديوهات مصنفة حسب الفئة",
+      "type": "images",
+      "priority": 2,
+      "input_dir": "./external_data/UAE_Sign_Dictionary",
+      "enabled": false,
+      "comments": "ضع صور الفئات تحت المجلدات العربية ثم فعّل هذا الإدخال",
+      "labels_mapping": {
+        "الأرقام": "الأرقام",
+        "الأفعال الشائعة": "الأفعال الشائعة",
+        "الحروف الهجائية": "الحروف الهجائية",
+        "السمات والمواقف": "السمات والمواقف",
+        "العائلة": "العائلة",
+        "المطابخ الشعبية": "المطابخ الشعبية",
+        "المعالم والمواقع": "المعالم والمواقع",
+        "الملابس وأدوات النظافة": "الملابس وأدوات النظافة",
+        "الوزارات والإدارات": "الوزارات والإدارات",
+        "الاتجاهات والمواقع": "الاتجاهات والمواقع",
+        "الألقاب والمهن": "الألقاب والمهن",
+        "الألوان": "الألوان",
+        "البيت وملحقاته": "البيت وملحقاته",
+        "التربية والتعليم": "التربية والتعليم",
+        "الحيوانات": "الحيوانات",
+        "الرياضة": "الرياضة",
+        "الصحة": "الصحة",
+        "المحيط والبيئة": "المحيط والبيئة",
+        "النباتات": "النباتات"
+      },
+      "config": {
+        "extract_landmarks": true,
+        "mediapipe_confidence": 0.5,
+        "min_hands_required": 1
+      }
+    },
+    {
       "name": "ArabSign",
       "description": "جمل متصلة - 50 جملة من 9,335 عينة (مستوى متقدم)",
       "type": "videos",
@@ -124,6 +159,45 @@
         "extract_landmarks": true,
         "mediapipe_confidence": 0.5,
         "normalize_coordinates": true
+      }
+    },
+    {
+      "name": "SIMPAC-2025-43",
+      "description": "نظام شامل للتعرف على لغة الإشارة العربية - فيديو + كود + نموذج مدرب",
+      "type": "videos",
+      "priority": 1,
+      "input_dir": "./external_data/SIMPAC-2025-43",
+      "enabled": false,
+      "comments": "نظام كامل جاهز للاستخدام - قم بتحميل البيانات وتفعيله",
+      "labels_mapping": {
+        "gesture_1": "simp_1",
+        "gesture_2": "simp_2"
+      },
+      "config": {
+        "extract_from_video": true,
+        "skeleton_available": true,
+        "sequence_length": 30,
+        "fps_stride": 1,
+        "mediapipe_confidence": 0.5
+      }
+    },
+    {
+      "name": "ChaimaMansouri-ASL",
+      "description": "نظام كشف لغة الإشارة العربية - كود + نموذج + بيانات تجريبية",
+      "type": "mixed",
+      "priority": 1,
+      "input_dir": "./external_data/ChaimaMansouri-ASL",
+      "enabled": false,
+      "comments": "نظام كامل مع تطبيق - قم بتحميل البيانات وتفعيله",
+      "labels_mapping": {
+        "sign_1": "chaima_1",
+        "sign_2": "chaima_2"
+      },
+      "config": {
+        "extract_landmarks": true,
+        "mediapipe_confidence": 0.5,
+        "support_video": true,
+        "support_images": true
       }
     }
   ],

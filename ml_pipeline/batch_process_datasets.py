@@ -147,14 +147,20 @@ class BatchDatasetProcessor:
                         if os.path.isdir(label_path):
                             processed = self.processor.process_videos_directory(label_path, label_name)
                             dataset_stats['sequences'] += processed
-                
+
                 elif dataset['type'] == 'skeleton':
                     # معالجة ملفات Skeleton
-                    for label, label_name in dataset['labels'].items():
-                        label_path = os.path.join(input_dir, label)
-                        if os.path.isdir(label_path):
-                            processed = self.processor.process_skeleton_files(label_path, label_name)
-                            dataset_stats['sequences'] += processed
+                    processed = self.processor.process_skeleton_dataset(input_dir, dataset['labels'])
+                    dataset_stats['sequences'] += processed
+
+                elif dataset['type'] == 'mixed':
+                    # معالجة مصادر مختلطة (مثل ChaimaMansouri-ASL)
+                    processed = self._process_mixed_dataset(dataset)
+                    dataset_stats['sequences'] += processed
+
+                else:
+                    print(f"⚠️ نوع غير مدعوم: {dataset['type']}")
+                    continue
                 
                 self.stats['sources'][dataset['name']] = dataset_stats
                 total_sequences += dataset_stats['sequences']
@@ -167,7 +173,42 @@ class BatchDatasetProcessor:
         self.stats['total_sequences'] = total_sequences
         self._print_summary()
         self._save_stats()
-    
+
+    def _process_mixed_dataset(self, dataset):
+        """معالجة مصادر مختلطة مثل ChaimaMansouri-ASL"""
+        input_dir = dataset['input_dir']
+        total_processed = 0
+
+        try:
+            # استيراد وحدة الدمج
+            if 'ChaimaMansouri' in dataset['name']:
+                from chaima_asl_integration import ChaimaASLIntegration
+                integrator = ChaimaASLIntegration(input_dir)
+
+                if integrator.is_ready():
+                    print("🔧 معالجة باستخدام نظام ChaimaMansouri-ASL")
+                    # TODO: تنفيذ معالجة البيانات عند اكتمال الاستنساخ
+                    print("ℹ️ النظام قيد التطوير - سيتم إضافة المعالجة لاحقاً")
+                else:
+                    print("⚠️ نظام ChaimaMansouri-ASL غير جاهز")
+
+            elif 'SIMPAC' in dataset['name']:
+                from simpac_integration import SIMPACIntegration
+                integrator = SIMPACIntegration(input_dir)
+
+                print("🔧 معالجة باستخدام نظام SIMPAC-2025-43")
+                # TODO: تنفيذ معالجة البيانات من SIMPAC
+                print("ℹ️ سيتم إضافة معالجة البيانات من SIMPAC لاحقاً")
+
+            return total_processed
+
+        except ImportError as e:
+            print(f"⚠️ فشل استيراد وحدة الدمج: {e}")
+            return 0
+        except Exception as e:
+            print(f"⚠️ خطأ في معالجة المصدر المختلط: {e}")
+            return 0
+
     def _print_summary(self):
         """طباعة ملخص المعالجة"""
         print("\n" + "="*60)
@@ -235,6 +276,20 @@ class BatchDatasetProcessor:
                     'type': 'images',
                     'original_format': 'jpg/png',
                     'conversion': 'تم استخراج Landmarks باستخدام MediaPipe'
+                },
+                {
+                    'name': 'SIMPAC-2025-43',
+                    'url': 'https://github.com/SoftwareImpacts/SIMPAC-2025-43',
+                    'type': 'videos + code + model',
+                    'original_format': 'mp4 + python + pkl',
+                    'conversion': 'نظام شامل جاهز للاستخدام - SVM + MediaPipe'
+                },
+                {
+                    'name': 'ChaimaMansouri-ASL',
+                    'url': 'https://github.com/ChaimaMansouri/Arabic-Sign-Language-Detection',
+                    'type': 'mixed (code + model + data)',
+                    'original_format': 'python + model files + images',
+                    'conversion': 'نظام كشف شامل للغة الإشارة العربية'
                 }
             ],
             'unified_format': {

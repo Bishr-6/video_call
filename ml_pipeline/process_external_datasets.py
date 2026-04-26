@@ -8,14 +8,31 @@ Processing External Arabic Sign Language Datasets
 - ملفات Skeleton جاهزة
 """
 
-import cv2
-import numpy as np
+import sys
 import os
-import mediapipe as mp
 from pathlib import Path
 import argparse
-from tqdm import tqdm
 import json
+
+# محاولة استخدام مسار مكتبات Python الافتراضي إذا لم يتم العثور على الحزم
+sys.path.insert(0, r'C:\Users\HP ENVY 15\AppData\Local\Programs\Python\Python312\Lib\site-packages')
+
+try:
+    import cv2
+except ModuleNotFoundError as e:
+    print("❌ لم يتم العثور على opencv-python (cv2). تأكد من تثبيتها في البيئة الحالية:")
+    print("   python -m pip install opencv-python")
+    raise e
+
+try:
+    import mediapipe as mp
+except ModuleNotFoundError as e:
+    print("❌ لم يتم العثور على mediapipe. تأكد من تثبيتها في البيئة الحالية:")
+    print("   python -m pip install mediapipe")
+    raise e
+
+import numpy as np
+from tqdm import tqdm
 
 # إعداد MediaPipe
 mp_holistic = mp.solutions.holistic
