@@ -720,7 +720,12 @@ io.on('connection', (socket) => {
 
   // --- Private Room Logic ---
   socket.on('room:create', () => {
-    const roomId = uuidv4().substring(0, 8);
+    const roomId = uuidv4().substring(0, 6).toUpperCase();
+    socket.join(roomId);
+    const user = users.get(socket.id);
+    if (user) user.roomId = roomId;
+    
+    if (!rooms.has(roomId)) rooms.set(roomId, { users: [socket.id] });
     socket.emit('room:created', { roomId });
   });
 
@@ -729,21 +734,21 @@ io.on('connection', (socket) => {
     const user = users.get(socket.id);
     if (!user) return;
 
-    socket.join(roomId);
-    user.roomId = roomId;
-
-    if (!rooms.has(roomId)) rooms.set(roomId, { users: [] });
     const room = rooms.get(roomId);
-
-    const existingUsers = room.users.map(id => ({
-      id,
-      displayName: users.get(id)?.displayName,
-      isDeaf: users.get(id)?.isDeaf
-    }));
-    socket.emit('room:users', existingUsers);
-
-    socket.to(roomId).emit('user:joined', { id: socket.id, displayName: user.displayName, isDeaf: user.isDeaf });
-    room.users.push(socket.id);
+    if (room) {
+      socket.join(roomId);
+      user.roomId = roomId;
+      const existingUsers = room.users.map(id => ({
+        id,
+        displayName: users.get(id)?.displayName,
+        isDeaf: users.get(id)?.isDeaf
+      }));
+      socket.emit('room:users', existingUsers);
+      socket.to(roomId).emit('user:joined', { id: socket.id, displayName: user.displayName, isDeaf: user.isDeaf });
+      room.users.push(socket.id);
+    } else {
+      socket.emit('room:error', { message: 'الغرفة غير موجودة' });
+    }
   });
 
   socket.on('webrtc:signal', (data) => {
@@ -761,6 +766,7 @@ io.on('connection', (socket) => {
     const user = users.get(socket.id);
     if (user?.roomId) {
       socket.to(user.roomId).emit('user:left', { id: socket.id });
+      socket.to(user.roomId).emit('call:ended', { reason: 'المشارك الآخر غادر المحادثة' });
       const room = rooms.get(user.roomId);
       if (room) {
         room.users = room.users.filter(id => id !== socket.id);
