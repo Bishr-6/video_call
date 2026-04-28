@@ -37,6 +37,7 @@ if (process.env.OPENAI_API_KEY) {
 // - Allow explicit CORS_ORIGIN from env (Railway variable)
 const allowedOrigins = new Set([
   'https://www.ishara.tech',
+  'https://ishara.tech',
   'https://video-call-one-kappa.vercel.app',
   'https://videocall-production-2b33.up.railway.app',
   'http://localhost:3000',
@@ -57,9 +58,22 @@ function isAllowedOrigin(origin) {
   return false;
 }
 
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (isAllowedOrigin(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  }
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
     if (isAllowedOrigin(origin)) {
       callback(null, true);
     } else {
@@ -67,8 +81,8 @@ app.use(cors({
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'PATCH', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   maxAge: 86400 // 24 hours
 }));
 
@@ -81,7 +95,9 @@ app.options('*', cors({
       callback(new Error('CORS not allowed'));
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'PATCH', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 app.use(express.json({ limit: '1mb' }));
