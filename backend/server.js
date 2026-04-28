@@ -282,9 +282,7 @@ app.post('/api/safefriend/generate-image', async (req, res) => {
     const result = await openai.images.generate({
       model: IMAGE_MODEL,
       prompt,
-      n: 1,
       size: IMAGE_SIZE,
-      response_format: 'url',
       signal: controller.signal
     });
     clearTimeout(timeout);
