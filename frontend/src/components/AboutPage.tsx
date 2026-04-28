@@ -152,6 +152,23 @@ export default function AboutPage() {
           </p>
           <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <a 
+              href="mailto:bishrjr37@gmail.com"
+              style={{ 
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                background: 'rgba(255,255,255,0.08)',
+                border: '1px solid var(--border-glass)',
+                color: 'var(--text-primary)',
+                padding: '14px 28px',
+                borderRadius: 'var(--radius-md)',
+                textDecoration: 'none',
+                fontWeight: '700'
+              }}
+            >
+              ✉️ bishrjr37@gmail.com
+            </a>
+            <a 
               href="mailto:redwanmoon2007@gmail.com"
               style={{ 
                 display: 'flex',
