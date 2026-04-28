@@ -28,6 +28,11 @@ function App() {
     }
   }, [theme])
 
+  // Scroll to top when page changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
+  }, [currentPage])
+
   return (
     <div dir="rtl" className={theme === 'light' ? 'light-theme' : 'dark-theme'}>
       <div className="bg-animated" />
