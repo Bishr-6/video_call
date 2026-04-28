@@ -266,7 +266,7 @@ app.post('/api/safefriend/chat', async (req, res) => {
   }
 });
 
-const IMAGE_MODEL = process.env.IMAGE_MODEL || 'gpt-image-1';
+const IMAGE_MODEL = process.env.IMAGE_MODEL || 'dall-e-2';
 const IMAGE_SIZE = process.env.IMAGE_SIZE || '512x512';
 
 app.post('/api/safefriend/generate-image', async (req, res) => {
