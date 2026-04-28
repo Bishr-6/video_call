@@ -377,10 +377,10 @@ app.post('/api/safefriend/generate-image', async (req, res) => {
       });
     }
 
-    const timeoutMs = 20000;
+    const timeoutMs = parseInt(process.env.IMAGE_TIMEOUT_MS || '60000', 10);
     const finalPrompt = buildImagePrompt(prompt);
 
-    console.log(`[${timestamp}] Calling OpenAI images.generate with model=${IMAGE_MODEL}, size=${IMAGE_SIZE}`);
+    console.log(`[${timestamp}] Calling OpenAI images.generate with model=${IMAGE_MODEL}, size=${IMAGE_SIZE}, timeout=${timeoutMs}ms`);
     console.log(`[${timestamp}] finalPrompt="${finalPrompt.substring(0, 100).replace(/\s+/g, ' ')}..."`);
 
     // Use Promise.race for timeout instead of AbortController (not supported by OpenAI images API)
