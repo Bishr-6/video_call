@@ -3,8 +3,7 @@ import { io, Socket } from 'socket.io-client'
 import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision'
 import { ArabicSignLanguageEngine, PredictionSmoother, assembleLettersToWords } from './ArabicSignLanguageEngine'
 import { GESTURES, processGestureStream, type ClassificationResult, type DetectionMode } from './SignLanguageClassifier'
-import * as tf from '@tensorflow/tfjs'
-import { AdvancedArSLClassifier } from './AdvancedArSLClassifier'
+import SourcesPanel from './SourcesPanel'
 
 type CallStatus = 'idle' | 'searching' | 'in-room'
 
@@ -59,15 +58,6 @@ export default function VideoCallPage() {
   const [isListening, setIsListening] = useState(false)
   const [receivedSignSequence, setReceivedSignSequence] = useState<string[]>([])
   const [detectionMode, setDetectionMode] = useState<DetectionMode>('all')
-  const detectionModeRef = useRef<DetectionMode>('all')
-
-  const handleModeChange = (mode: DetectionMode) => {
-    setDetectionMode(mode)
-    detectionModeRef.current = mode
-  }
-
-  const [advancedClassifier, setAdvancedClassifier] = useState<AdvancedArSLClassifier | null>(null)
-  const [aiModelStatus, setAiModelStatus] = useState<'loading' | 'ready' | 'failed'>('loading')
 
   const socketRef = useRef<Socket | null>(null)
   const recognitionRef = useRef<any>(null)
@@ -88,25 +78,6 @@ export default function VideoCallPage() {
   const showToast = (msg: string, type = 'info') => {
     setToast({ msg, type }); setTimeout(() => setToast(null), 3000)
   }
-
-  useEffect(() => {
-    async function initAdvancedAI() {
-      try {
-        setAiModelStatus('loading')
-        // Load the CNN-BiLSTM architecture from the 2026 paper
-        const classifier = new AdvancedArSLClassifier()
-        // Simulate warm-up time for WebGL/WASM backend
-        setTimeout(() => {
-          setAdvancedClassifier(classifier)
-          setAiModelStatus(classifier.isReady() ? 'ready' : 'failed')
-        }, 1500)
-      } catch (err) {
-        console.warn("⚠️ Advanced CNN-BiLSTM Engine initialization failed.", err)
-        setAiModelStatus('failed')
-      }
-    }
-    initAdvancedAI()
-  }, [])
 
   const toggleSpeechRecognition = () => {
     if (isListening) {
@@ -144,11 +115,7 @@ export default function VideoCallPage() {
   const connectSocket = useCallback(() => {
     const url = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000'
     const socket = io(url)
-    
-    // Register when user picks a role
-    socket.on('connect', () => {
-      console.log('Connected to server')
-    })
+    socket.on('connect', () => socket.emit('user:register', { isDeaf }))
     
     socket.on('queue:waiting', () => setStatus('searching'))
     
@@ -159,18 +126,7 @@ export default function VideoCallPage() {
 
     socket.on('room:created', (data) => {
       setRoomId(data.roomId)
-      setStatus('in-room')
-      showToast(`تم إنشاء الغرفة بنجاح: ${data.roomId}`, 'success')
-    })
-
-    socket.on('room:error', (data) => {
-      showToast(data.message, 'error')
-      setStatus('idle')
-    })
-
-    socket.on('call:ended', (data) => {
-      showToast(data.reason, 'warning')
-      setTimeout(() => window.location.reload(), 2000)
+      joinRoom(data.roomId)
     })
 
     socket.on('room:users', async (users: any[]) => {
@@ -185,8 +141,6 @@ export default function VideoCallPage() {
     socket.on('user:joined', (user) => {
       setRemoteUsers(prev => new Map(prev).set(user.id, { ...user }))
       showToast(`${user.displayName} انضم للمكالمة`, 'info')
-      const pc = createPeerConnection(user.id, true)
-      peersRef.current.set(user.id, pc)
     })
 
     socket.on('webrtc:signal', async (data) => {
@@ -316,32 +270,7 @@ export default function VideoCallPage() {
               ctx.shadowBlur = 0
             }
 
-            let res: { currentGesture: ClassificationResult | null } = { currentGesture: null }
-            
-            if (aiModelStatus === 'ready' && advancedClassifier) {
-              // TFJS Advanced Mode
-              const landmarks = results.landmarks[0]
-              const predictionName = advancedClassifier.predictFromLandmarks(landmarks)
-              
-              if (predictionName) {
-                const gestureMatch = GESTURES.find(g => g.name === predictionName)
-                if (gestureMatch) {
-                  res.currentGesture = {
-                    name: gestureMatch.name,
-                    arabic: gestureMatch.arabic,
-                    confidence: 0.9,
-                    category: gestureMatch.category
-                  }
-                }
-              } else {
-                // Fallback to the huge dictionary
-                res = processGestureStream(results.landmarks[0] as any, detectionModeRef.current)
-              }
-            } else {
-              // Basic Heuristic Mode (The huge dictionary)
-              res = processGestureStream(results.landmarks[0] as any, detectionModeRef.current)
-            }
-
+            const res = processGestureStream(results.landmarks[0] as any, detectionMode)
             currentGestureRef.current = res.currentGesture
             const now = Date.now()
             if (res.currentGesture) {
@@ -369,6 +298,13 @@ export default function VideoCallPage() {
     if ('vibrate' in navigator) navigator.vibrate(50) // Small pulse
   }
 
+  const speakText = (text: string) => {
+    if (!('speechSynthesis' in window)) return
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.lang = 'ar-SA'; utterance.rate = 0.9
+    window.speechSynthesis.speak(utterance)
+  }
+
   const confirmGesture = (g: ClassificationResult) => {
     sentenceBufferRef.current += (g.name === 'Space' ? ' ' : g.arabic)
     setSentenceDisplay(sentenceBufferRef.current)
@@ -387,6 +323,8 @@ export default function VideoCallPage() {
     setTimeout(() => setFloatingEmoji(null), 2000)
   }
 
+  const refineSentence = (rawText: string) => signEngine.refine(rawText)
+
   const finalizeSentence = () => {
     const rawText = sentenceBufferRef.current.trim()
     if (rawText) {
@@ -396,153 +334,91 @@ export default function VideoCallPage() {
     sentenceBufferRef.current = ''; setSentenceDisplay(''); lastActivityRef.current = Date.now()
   }
 
-  const [roleSelected, setRoleSelected] = useState(false)
-
   const startRandomChat = async () => {
-    if (!roleSelected) return showToast('يرجى اختيار حالتك أولاً', 'warning')
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       localStreamRef.current = stream; if (localVideoRef.current) localVideoRef.current.srcObject = stream
-      await initHandDetection()
-      socketRef.current?.emit('user:register', { isDeaf })
-      socketRef.current?.emit('queue:join')
+      await initHandDetection(); socketRef.current?.emit('queue:join')
     } catch { showToast('خطأ في الكاميرا', 'error') }
   }
 
   const startPrivateRoom = async () => {
-    if (!roleSelected) return showToast('يرجى اختيار حالتك أولاً', 'warning')
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       localStreamRef.current = stream; if (localVideoRef.current) localVideoRef.current.srcObject = stream
-      await initHandDetection()
-      socketRef.current?.emit('user:register', { isDeaf })
-      socketRef.current?.emit('room:create')
-    } catch { showToast('خطأ في الكاميرا', 'error') }
-  }
-
-  const joinRoomAction = async () => {
-    if (!roleSelected) return showToast('يرجى اختيار حالتك أولاً', 'warning')
-    if (!roomId) return showToast('يرجى إدخال رمز الغرفة', 'warning')
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-      localStreamRef.current = stream; if (localVideoRef.current) localVideoRef.current.srcObject = stream
-      await initHandDetection()
-      socketRef.current?.emit('user:register', { isDeaf })
-      socketRef.current?.emit('room:join', { roomId })
+      await initHandDetection(); socketRef.current?.emit('room:create')
     } catch { showToast('خطأ في الكاميرا', 'error') }
   }
 
   const joinRoom = (id: string) => { setRoomId(id); socketRef.current?.emit('room:join', { roomId: id }) }
 
+  useEffect(() => {
+    if (status === 'in-room' && localVideoRef.current && localStreamRef.current) {
+      localVideoRef.current.srcObject = localStreamRef.current
+    }
+  }, [status])
+
   useEffect(() => { connectSocket(); return () => { socketRef.current?.disconnect() } }, [])
 
   return (
-    <div className="page" style={{ background: 'var(--bg-primary)', paddingBottom: 60 }}>
-      {toast && <div className={`toast toast-${toast.type}`} style={{ zIndex: 10000 }}>{toast.msg}</div>}
+    <div className="page">
+      {toast && <div className={`toast toast-${toast.type}`}>{toast.msg}</div>}
 
       {status === 'idle' && (
-        <div className="container" style={{ paddingTop: 60, maxWidth: 800 }}>
-          <div className="glass-strong p-6 text-center animate-fadeInUp" style={{ borderRadius: 'var(--radius-xl)', border: '1px solid var(--accent-cyan)' }}>
-            <h2 className="gradient-text mb-4" style={{ fontSize: '2.5rem', fontWeight: 900 }}>🤟 تواصل بلا حدود</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', marginBottom: 32 }}>منصة إشارة الذكية للمكالمات والترجمة الفورية</p>
-
-            <div style={{ marginBottom: 40 }}>
-              <h3 style={{ fontSize: '1.2rem', marginBottom: 20, color: 'var(--text-primary)' }}>حدد حالتك للبدء:</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                <div 
-                  className={`mode-card glass ${roleSelected && isDeaf ? 'selected' : ''}`} 
-                  style={{ 
-                    padding: '30px', 
-                    cursor: 'pointer',
-                    transition: 'all 0.4s',
-                    border: roleSelected && isDeaf ? '2px solid var(--accent-cyan)' : '1px solid var(--border-glass)',
-                    background: roleSelected && isDeaf ? 'rgba(6,182,212,0.1)' : 'transparent'
-                  }}
-                  onClick={() => { setIsDeaf(true); setRoleSelected(true); }}
-                >
-                  <div style={{ fontSize: '3rem', marginBottom: 12 }}>🤟</div>
-                  <div style={{ fontWeight: 800, fontSize: '1.1rem' }}>أصم / أبكم</div>
-                  <p style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: 8 }}>استخدام لغة الإشارة للتواصل</p>
-                </div>
-                <div 
-                  className={`mode-card glass ${roleSelected && !isDeaf ? 'selected' : ''}`} 
-                  style={{ 
-                    padding: '30px', 
-                    cursor: 'pointer',
-                    transition: 'all 0.4s',
-                    border: roleSelected && !isDeaf ? '2px solid var(--accent-purple)' : '1px solid var(--border-glass)',
-                    background: roleSelected && !isDeaf ? 'rgba(139,92,246,0.1)' : 'transparent'
-                  }}
-                  onClick={() => { setIsDeaf(false); setRoleSelected(true); }}
-                >
-                  <div style={{ fontSize: '3rem', marginBottom: 12 }}>🗣️</div>
-                  <div style={{ fontWeight: 800, fontSize: '1.1rem' }}>سامع / متحدث</div>
-                  <p style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: 8 }}>استخدام الصوت للتواصل</p>
+        <div className="matching-screen">
+          <h2 className="gradient-text mb-6">🤟 منصة إشارة للتواصل الذكي</h2>
+          <div className="mode-selector mb-8">
+             <div className={`mode-card glass ${isDeaf ? 'selected' : ''}`} onClick={() => setIsDeaf(true)}>🤟 أصم / أبكم</div>
+             <div className={`mode-card glass ${!isDeaf ? 'selected' : ''}`} onClick={() => setIsDeaf(false)}>🗣️ سامع / متحدث</div>
+          </div>
+          
+          <div className="flex flex-col gap-4 w-full max-w-md">
+            <button className="btn btn-primary btn-lg w-full" onClick={startRandomChat}>🔍 بدء محادثة عشوائية (١ ضد ١)</button>
+            <div className="text-center opacity-50">أو</div>
+            <button className="btn btn-ghost w-full" onClick={() => setShowPrivateOptions(!showPrivateOptions)}>🏢 خيارات الغرفة الخاصة</button>
+            
+            {showPrivateOptions && (
+              <div className="glass p-4 flex flex-col gap-3 animate-fadeInUp">
+                <button className="btn btn-primary btn-sm" onClick={startPrivateRoom}>➕ إنشاء غرفة جديدة</button>
+                <div className="flex gap-2">
+                  <input className="input input-sm" placeholder="رمز الغرفة..." onChange={(e) => setRoomId(e.target.value)} />
+                  <button className="btn btn-ghost btn-sm" onClick={async () => {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                    localStreamRef.current = stream; if (localVideoRef.current) localVideoRef.current.srcObject = stream
+                    await initHandDetection(); joinRoom(roomId)
+                  }}>انضمام</button>
                 </div>
               </div>
-            </div>
+            )}
+          </div>
 
-            <div className="flex flex-col gap-4">
-              <button 
-                className={`btn btn-lg ${roleSelected ? 'btn-primary' : 'btn-ghost'}`} 
-                style={{ height: 70, fontSize: '1.2rem', opacity: roleSelected ? 1 : 0.5 }}
-                onClick={startRandomChat}
-                disabled={!roleSelected}
-              >
-                🔍 بدء محادثة عشوائية فورية
-              </button>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 8 }}>
-                <button 
-                  className="btn btn-ghost" 
-                  style={{ height: 60, borderColor: 'var(--accent-purple)' }}
-                  onClick={startPrivateRoom}
-                  disabled={!roleSelected}
-                >
-                  ➕ إنشاء غرفة خاصة
-                </button>
-                <div style={{ position: 'relative' }}>
-                  <input 
-                    className="input" 
-                    style={{ height: 60, paddingRight: 50 }} 
-                    placeholder="رمز الغرفة..." 
-                    value={roomId}
-                    onChange={(e) => setRoomId(e.target.value.toUpperCase())}
-                  />
-                  <button 
-                    onClick={joinRoomAction}
-                    style={{ 
-                      position: 'absolute', left: 10, top: 10, bottom: 10, 
-                      background: 'var(--accent-cyan)', border: 'none', 
-                      borderRadius: 'var(--radius-md)', padding: '0 15px', color: 'white', fontWeight: 800
-                    }}
-                  >
-                    دخول
-                  </button>
-                </div>
-              </div>
-            </div>
+          <div style={{ width: '100%', maxWidth: 980 }}>
+            <SourcesPanel compact />
           </div>
         </div>
       )}
 
       {status === 'searching' && (
-        <div className="matching-screen animate-fadeInUp">
-          <div className="matching-spinner" style={{ width: 100, height: 100, borderWidth: 6 }} />
-          <h2 className="mb-4" style={{ fontSize: '2rem', fontWeight: 900 }}>جاري البحث...</h2>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: 32 }}>نبحث لك عن شريك محادثة متوافق</p>
-          <button className="btn btn-danger btn-lg" onClick={() => { socketRef.current?.emit('queue:leave'); setStatus('idle') }}>🚪 إلغاء البحث</button>
+        <div className="matching-screen">
+          <div className="matching-spinner" />
+          <h2 className="mb-4">جاري البحث عن شريك محادثة...</h2>
+          <button className="btn btn-danger" onClick={() => { socketRef.current?.emit('queue:leave'); setStatus('idle') }}>إلغاء</button>
         </div>
       )}
 
       {status === 'in-room' && (
-        <div className="call-layout animate-fadeInUp">
+        <div className="call-layout">
           <div className="video-grid-split" style={{ gridTemplateColumns: remoteUsers.size === 1 ? '1fr 1fr' : `repeat(${Math.min(remoteUsers.size + 1, 3)}, 1fr)` }}>
             <div className="video-wrapper-full">
               <video ref={localVideoRef} autoPlay playsInline muted style={{ transform: 'scaleX(-1)' }} />
               <canvas ref={canvasRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', transform: 'scaleX(-1)' }} />
-              {sentenceDisplay && <div className="video-label" style={{ top: 20, bottom: 'auto', background: 'var(--accent-cyan)', boxShadow: 'var(--shadow-glow)' }}>{sentenceDisplay}</div>}
-              <div className="video-label">👤 أنت ({isDeaf ? 'أصم' : 'سامع'})</div>
+              {sentenceDisplay && <div className="video-label" style={{ top: 10, bottom: 'auto', background: 'rgba(6,182,212,0.9)' }}>{sentenceDisplay}</div>}
+              {floatingEmoji && (
+                <div className="floating-emoji" style={{ left: `${floatingEmoji.x}%`, top: `${floatingEmoji.y}%` }}>
+                  {floatingEmoji.emoji}
+                </div>
+              )}
+              <div className="video-label">👤 أنت</div>
             </div>
             {Array.from(remoteUsers.values()).map(user => (
               <RemoteVideo key={user.id} stream={user.stream} displayName={user.displayName} />
@@ -550,48 +426,84 @@ export default function VideoCallPage() {
           </div>
 
           <div className="call-bottom-panel">
-            <div className="glass-strong transcript-panel-bottom" style={{ borderTop: '2px solid var(--accent-cyan)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <h3 style={{ margin: 0 }}>💬 المحادثة المباشرة</h3>
-                {roomId && <span style={{ background: 'rgba(255,255,255,0.1)', padding: '4px 12px', borderRadius: 20, fontSize: '0.8rem' }}>رمز: {roomId}</span>}
+            {/* Sign Sequence Display (Idea #1 - Speech-to-Sign) */}
+            {isDeaf && receivedSignSequence.length > 0 && (
+              <div className="sign-sequence-overlay glass-strong">
+                {receivedSignSequence.map((id, idx) => (
+                  <div key={idx} className="sign-card">
+                    <div className="sign-icon">🤟</div>
+                    <div className="sign-name">{id}</div>
+                  </div>
+                ))}
               </div>
-              <div style={{ height: 'calc(100% - 50px)', overflowY: 'auto', padding: '0 10px' }}>
-                {messages.length === 0 && <div className="text-center opacity-30 mt-10">لا توجد رسائل بعد...</div>}
+            )}
+
+            <div className="glass-strong transcript-panel-bottom">
+              <h3>💬 المحادثة {roomId && <span style={{ fontSize: '0.8rem', opacity: 0.5 }}>- الرمز: {roomId}</span>}</h3>
+              <div style={{ height: 'calc(100% - 40px)', overflowY: 'auto' }}>
                 {messages.map((m, i) => (
                   <div key={i} className={`chat-bubble ${m.senderId === socketRef.current?.id ? 'local' : 'remote'}`}>
                     <div className="sender">{m.senderName}</div>
-                    <div>{m.text}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {m.text}
+                      {/* Speech-to-Sign Icons (Idea #1) */}
+                      {m.text.includes('أحبك') && <span>🤟</span>}
+                      {m.text.includes('شكراً') && <span>🙏</span>}
+                      {m.text.includes('مرحباً') && <span>👋</span>}
+                      {m.text.includes('فوز') && <span>🏆</span>}
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
-
-            <div className="flex flex-col gap-3">
-              <div className="glass-strong p-4 flex gap-2 flex-wrap items-center justify-center">
-                <button className={`btn btn-sm ${detectionMode === 'all' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => handleModeChange('all')}>🌐 الكل</button>
-                <button className={`btn btn-sm ${detectionMode === 'letter' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => handleModeChange('letter')}>🔤 حروف</button>
-                <button className={`btn btn-sm ${detectionMode === 'number' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => handleModeChange('number')}>🔢 أرقام</button>
-                <button className={`btn btn-sm ${detectionMode === 'action' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => handleModeChange('action')}>🎬 أفعال</button>
-              </div>
-              <div className="glass-strong p-4">
-                <div className="call-controls" style={{ marginBottom: 20 }}>
-                  <button className={`btn btn-icon ${isMuted ? 'btn-danger' : 'btn-ghost'}`} onClick={() => { localStreamRef.current?.getAudioTracks().forEach(t => t.enabled = isMuted); setIsMuted(!isMuted) }}>{isMuted ? '🔇' : '🔊'}</button>
-                  {!isDeaf && <button className={`btn btn-icon ${isListening ? 'active-pulse' : 'btn-ghost'}`} onClick={toggleSpeechRecognition}>{isListening ? '🛑' : '🎙️'}</button>}
-                  <button className="btn btn-danger" style={{ padding: '0 30px', fontWeight: 800 }} onClick={() => { socketRef.current?.emit('call:leave', { roomId }); window.location.reload() }}>🔴 إنهاء المكالمة</button>
-                </div>
-                <form className="flex gap-2" onSubmit={(e) => {
-                  e.preventDefault(); const input = e.currentTarget.querySelector('input')!;
-                  if (!input.value.trim()) return;
-                  socketRef.current?.emit('transcription:send', { roomId, text: input.value, type: 'text' });
-                  setMessages(prev => [...prev, { senderId: socketRef.current!.id, senderName: 'أنت', text: input.value, type: 'text', timestamp: Date.now() }]);
-                  input.value = '';
-                }}>
-                  <input className="input" placeholder="اكتب هنا..." style={{ flex: 1, borderRadius: 30 }} />
-                  <button className="btn btn-primary btn-icon">📤</button>
-                </form>
+            
+            {/* Mode Selector Panel */}
+            <div className="glass-strong p-4 flex flex-col gap-2">
+              <h4 style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: 4 }}>🎯 نمط التعرف الذكي</h4>
+              <div className="flex gap-2 flex-wrap">
+                <button className={`btn btn-sm ${detectionMode === 'all' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('all')}>🌐 الكل</button>
+                <button className={`btn btn-sm ${detectionMode === 'letter' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('letter')}>🔤 حروف</button>
+                <button className={`btn btn-sm ${detectionMode === 'number' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('number')}>🔢 أرقام</button>
+                <button className={`btn btn-sm ${detectionMode === 'action' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setDetectionMode('action')}>🎬 أفعال</button>
               </div>
             </div>
+
+            <div className="glass-strong p-4 flex flex-col gap-4">
+               <div className="call-controls" style={{ padding: 0 }}>
+                 <button className="btn btn-icon btn-ghost" onClick={() => setShowInstructions(!showInstructions)}>📖</button>
+                 <button className={`btn btn-icon ${isSharingScreen ? 'btn-success' : 'btn-ghost'}`} onClick={() => {
+                   if (!isSharingScreen) {
+                     navigator.mediaDevices.getDisplayMedia({ video: true }).then(stream => {
+                       screenStreamRef.current = stream; setIsSharingScreen(true);
+                       const track = stream.getVideoTracks()[0];
+                       peersRef.current.forEach(pc => pc.getSenders().find(s => s.track?.kind === 'video')?.replaceTrack(track));
+                       track.onended = () => {
+                         setIsSharingScreen(false);
+                         const localTrack = localStreamRef.current?.getVideoTracks()[0];
+                         peersRef.current.forEach(pc => pc.getSenders().find(s => s.track?.kind === 'video')?.replaceTrack(localTrack || null));
+                       }
+                     })
+                   } else { screenStreamRef.current?.getTracks().forEach(t => t.stop()); setIsSharingScreen(false) }
+                 }}>🖥️</button>
+                 <button className={`btn btn-icon ${isMuted ? 'btn-danger' : 'btn-ghost'}`} onClick={() => { localStreamRef.current?.getAudioTracks().forEach(t => t.enabled = isMuted); setIsMuted(!isMuted) }}>{isMuted ? '🔇' : '🔊'}</button>
+                 {!isDeaf && <button className={`btn btn-icon ${isListening ? 'active-pulse' : 'btn-ghost'}`} onClick={toggleSpeechRecognition} title="ترجمة كلامك إلى إشارة">{isListening ? '🛑' : '🎙️'}</button>}
+                 <button className="btn btn-danger" onClick={() => window.location.reload()}>📵 مغادرة</button>
+               </div>
+               <form className="flex gap-2" onSubmit={(e) => {
+                 e.preventDefault(); const input = e.currentTarget.querySelector('input')!;
+                 if (!input.value.trim()) return;
+                 socketRef.current?.emit('transcription:send', { roomId, text: input.value, type: 'text' });
+                 setMessages(prev => [...prev, { senderId: socketRef.current!.id, senderName: 'أنت', text: input.value, type: 'text', timestamp: Date.now() }]);
+                 input.value = '';
+               }}><input className="input" placeholder="اكتب رسالة..." style={{ flex: 1 }} /><button className="btn btn-primary">📤</button></form>
+            </div>
           </div>
+        </div>
+      )}
+
+      {status === 'in-room' && (
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 18px 26px' }}>
+          <SourcesPanel compact />
         </div>
       )}
     </div>

@@ -4,7 +4,6 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import { v4 as uuidv4 } from 'uuid';
 import OpenAI from 'openai';
-import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import ytdl from '@distube/ytdl-core';
 import fs from 'fs';
@@ -33,19 +32,11 @@ if (process.env.OPENAI_API_KEY) {
   console.warn("⚠️ Warning: OPENAI_API_KEY is missing.");
 }
 
-// Initialize Supabase
-let supabase = null;
-if (process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
-  supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-  console.log("✅ Supabase Initialized");
-} else {
-  console.warn("⚠️ Warning: Supabase credentials missing. Using in-memory fallback.");
-}
-
 // ✅ CORS Configuration for Production
 // - Allow exact origins + any Vercel subdomain (preview & production)
 // - Allow explicit CORS_ORIGIN from env (Railway variable)
 const allowedOrigins = new Set([
+  'https://www.ishara.tech',
   'https://video-call-one-kappa.vercel.app',
   'https://videocall-production-2b33.up.railway.app',
   'http://localhost:3000',
@@ -467,168 +458,6 @@ app.post('/api/sign-translate', async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════
-// ██  SAFEFRIEND (Psychological Support Chatbot)  ███████████████
-// ══════════════════════════════════════════════════════════════════
-
-// SafeFriend System Prompt
-const SAFEFRIEND_SYSTEM = `أنت "صديقي الآمن" - مساعد نفسي ذكي للطلاب. 
-أنت متخصص في تقديم دعم نفسي أولي وتعليمي للطلاب خلال فترات الامتحانات والضغوط الدراسية.
-
-قواعد التفاعل:
-1. تحدث باللغة العربية الفصيحة الواضحة
-2. كن متعاطفاً وداعماً وإيجابياً
-3. عندما يعبر الطالب عن توتر أو ضيق، قدم تمارين تنفس بسيطة ونصائح للاسترخاء
-4. الامتثال للموضوعات التعليمية والنفسية فقط
-5. إذا طلب موضوعاً مختلفاً، اعتذر بلطف: "عذراً، أنا متخصص في الدعم النفسي التعليمي فقط. كيف يمكنني مساعدتك في دراستك؟"
-6. لا تعطِ تشخيصات طبية أو استشارات نفسية متقدمة
-7. لا تخزن البيانات الشخصية أبداً
-8. إذا اكتشفت علامات استغاثة حقيقية (كلمات مثل: احزن، مكتئب، أؤذي، انتحاري)، أخبر الطالب: "أنا قلق عليك. يرجى التواصل فوراً مع المرشد الطلابي أو متخصص نفسي."`;
-
-// Store image generation count (in production, use database)
-const imageCountStore = new Map();
-
-// Chat endpoint
-app.post('/api/safefriend/chat', async (req, res) => {
-  try {
-    const { message, history } = req.body;
-    if (!message || !openai) {
-      return res.status(400).json({ success: false, error: 'رسالة أو OpenAI غير متوفر' });
-    }
-
-    const messages = [
-      ...history,
-      { role: 'user', content: message }
-    ];
-
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: SAFEFRIEND_SYSTEM },
-        ...messages
-      ],
-      temperature: 0.8,
-      max_tokens: 1024
-    });
-
-    const reply = completion.choices[0]?.message?.content || 'عذراً، حدث خطأ في المعالجة.';
-
-    return res.json({
-      success: true,
-      reply,
-      timestamp: new Date().toISOString()
-    });
-
-  } catch (error) {
-    console.error('❌ SafeFriend Chat Error:', error?.message);
-    return res.status(500).json({ 
-      success: false, 
-      error: 'عذراً، حدث خطأ في الخادم. حاول مرة أخرى.'
-    });
-  }
-});
-
-// Get SafeFriend status (remaining images)
-app.get('/api/safefriend/status', async (req, res) => {
-  const clientId = req.headers['x-forwarded-for']?.split(',')[0] || req.ip || 'demo';
-  const todayDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-  
-  let count = 0;
-  
-  if (supabase) {
-    const { data, error } = await supabase
-      .from('user_image_usage')
-      .select('count')
-      .eq('ip_address', clientId)
-      .eq('usage_date', todayDate)
-      .single();
-      
-    if (data) count = data.count;
-  } else {
-    const key = `${clientId}-${new Date().toDateString()}`;
-    count = imageCountStore.get(key) || 0;
-  }
-  
-  return res.json({
-    success: true,
-    remaining: Math.max(0, 3 - count),
-    today: todayDate
-  });
-});
-
-app.post('/api/safefriend/generate-image', async (req, res) => {
-  try {
-    const { prompt } = req.body;
-    if (!prompt || !openai) {
-      return res.status(400).json({ success: false, error: 'الوصف مطلوب أو OpenAI غير متوفر' });
-    }
-
-    const clientId = req.headers['x-forwarded-for']?.split(',')[0] || req.ip || 'demo';
-    const todayDate = new Date().toISOString().split('T')[0];
-    
-    let count = 0;
-    
-    // Check limit
-    if (supabase) {
-      const { data } = await supabase
-        .from('user_image_usage')
-        .select('count')
-        .eq('ip_address', clientId)
-        .eq('usage_date', todayDate)
-        .single();
-      if (data) count = data.count;
-    } else {
-      const key = `${clientId}-${new Date().toDateString()}`;
-      count = imageCountStore.get(key) || 0;
-    }
-
-    if (count >= 3) {
-      return res.status(429).json({ 
-        success: false, 
-        error: 'لقد وصلت للحد الأقصى من الصور اليوم (3 صور). حاول غداً.'
-      });
-    }
-
-    // Generate image
-    const safePrompt = `صورة تعليمية توضيحية: ${prompt}. يجب أن تكون مناسبة وتعليمية.`;
-    const image = await openai.images.generate({
-      model: 'dall-e-3',
-      prompt: safePrompt,
-      n: 1,
-      size: '1024x1024',
-      quality: 'standard'
-    });
-
-    // Update count
-    const newCount = count + 1;
-    if (supabase) {
-      await supabase.from('user_image_usage').upsert({
-        ip_address: clientId,
-        usage_date: todayDate,
-        count: newCount
-      }, { onConflict: 'ip_address, usage_date' });
-    } else {
-      const key = `${clientId}-${new Date().toDateString()}`;
-      imageCountStore.set(key, newCount);
-    }
-
-    return res.json({
-      success: true,
-      imageUrl: image.data[0]?.url,
-      remaining: 3 - newCount,
-      timestamp: new Date().toISOString()
-    });
-
-  } catch (error) {
-    console.error('❌ SafeFriend Image Generation Error:', error?.message);
-    return res.status(500).json({ 
-      success: false, 
-      error: 'عذراً، حدث خطأ في إنشاء الصورة. حاول مرة أخرى.'
-    });
-  }
-});
-
-
-// ══════════════════════════════════════════════════════════════════
 // ██  SOCKET.IO (Video Call)  █████████████████████████████████████
 // ══════════════════════════════════════════════════════════════════
 
@@ -720,12 +549,7 @@ io.on('connection', (socket) => {
 
   // --- Private Room Logic ---
   socket.on('room:create', () => {
-    const roomId = uuidv4().substring(0, 6).toUpperCase();
-    socket.join(roomId);
-    const user = users.get(socket.id);
-    if (user) user.roomId = roomId;
-    
-    if (!rooms.has(roomId)) rooms.set(roomId, { users: [socket.id] });
+    const roomId = uuidv4().substring(0, 8);
     socket.emit('room:created', { roomId });
   });
 
@@ -734,21 +558,21 @@ io.on('connection', (socket) => {
     const user = users.get(socket.id);
     if (!user) return;
 
+    socket.join(roomId);
+    user.roomId = roomId;
+
+    if (!rooms.has(roomId)) rooms.set(roomId, { users: [] });
     const room = rooms.get(roomId);
-    if (room) {
-      socket.join(roomId);
-      user.roomId = roomId;
-      const existingUsers = room.users.map(id => ({
-        id,
-        displayName: users.get(id)?.displayName,
-        isDeaf: users.get(id)?.isDeaf
-      }));
-      socket.emit('room:users', existingUsers);
-      socket.to(roomId).emit('user:joined', { id: socket.id, displayName: user.displayName, isDeaf: user.isDeaf });
-      room.users.push(socket.id);
-    } else {
-      socket.emit('room:error', { message: 'الغرفة غير موجودة' });
-    }
+
+    const existingUsers = room.users.map(id => ({
+      id,
+      displayName: users.get(id)?.displayName,
+      isDeaf: users.get(id)?.isDeaf
+    }));
+    socket.emit('room:users', existingUsers);
+
+    socket.to(roomId).emit('user:joined', { id: socket.id, displayName: user.displayName, isDeaf: user.isDeaf });
+    room.users.push(socket.id);
   });
 
   socket.on('webrtc:signal', (data) => {
@@ -766,7 +590,6 @@ io.on('connection', (socket) => {
     const user = users.get(socket.id);
     if (user?.roomId) {
       socket.to(user.roomId).emit('user:left', { id: socket.id });
-      socket.to(user.roomId).emit('call:ended', { reason: 'المشارك الآخر غادر المحادثة' });
       const room = rooms.get(user.roomId);
       if (room) {
         room.users = room.users.filter(id => id !== socket.id);

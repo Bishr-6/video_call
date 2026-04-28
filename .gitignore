@@ -30,4 +30,3 @@ external_data/
 arabic_sl_repo/
 external_repo/
 .venv_new/
-*.h5
