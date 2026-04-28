@@ -270,14 +270,25 @@ const IMAGE_MODEL = process.env.IMAGE_MODEL || 'dall-e-2';
 const IMAGE_SIZE = process.env.IMAGE_SIZE || '512x512';
 
 app.post('/api/safefriend/generate-image', async (req, res) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] SafeFriend image request: prompt="${req.body.prompt?.substring(0, 100)}..."`);
+
   try {
-    if (!openai) return res.status(500).json({ success: false, error: 'OpenAI not configured' });
+    if (!openai) {
+      console.error(`[${timestamp}] SafeFriend image error: OpenAI not configured`);
+      return res.status(500).json({ success: false, error: 'OpenAI not configured' });
+    }
     const { prompt } = req.body;
-    if (!prompt) return res.status(400).json({ success: false, error: 'prompt مطلوب' });
+    if (!prompt) {
+      console.error(`[${timestamp}] SafeFriend image error: prompt missing`);
+      return res.status(400).json({ success: false, error: 'prompt مطلوب' });
+    }
 
     const controller = new AbortController();
     const timeoutMs = 20000;
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    console.log(`[${timestamp}] Calling OpenAI images.generate with model=${IMAGE_MODEL}, size=${IMAGE_SIZE}`);
 
     const result = await openai.images.generate({
       model: IMAGE_MODEL,
@@ -287,15 +298,25 @@ app.post('/api/safefriend/generate-image', async (req, res) => {
     });
     clearTimeout(timeout);
 
+    console.log(`[${timestamp}] OpenAI response received: ${result?.data?.length || 0} images`);
+
     const imageUrl = result?.data?.[0]?.url || null;
     if (!imageUrl) {
-      console.error('SafeFriend image error: invalid response', result);
+      console.error(`[${timestamp}] SafeFriend image error: invalid response`, JSON.stringify(result, null, 2));
       return res.status(500).json({ success: false, error: 'فشل إنشاء الصورة' });
     }
 
+    console.log(`[${timestamp}] SafeFriend image success: ${imageUrl.substring(0, 50)}...`);
     return res.json({ success: true, imageUrl, remaining: 2 });
   } catch (error) {
-    console.error('SafeFriend image error:', error);
+    console.error(`[${timestamp}] SafeFriend image error:`, {
+      name: error?.name,
+      message: error?.message,
+      status: error?.status,
+      code: error?.code,
+      type: error?.type,
+      stack: error?.stack?.substring(0, 500)
+    });
     if (error?.name === 'AbortError') {
       return res.status(504).json({ success: false, error: 'انتهى وقت إنشاء الصورة. حاول مرة أخرى.' });
     }
