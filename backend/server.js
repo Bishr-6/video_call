@@ -266,8 +266,17 @@ app.post('/api/safefriend/chat', async (req, res) => {
   }
 });
 
-const IMAGE_MODEL = process.env.IMAGE_MODEL || 'dall-e-2';
+const IMAGE_MODEL = process.env.IMAGE_MODEL || 'gpt-image-1';
 const IMAGE_SIZE = process.env.IMAGE_SIZE || '512x512';
+
+function buildImagePrompt(userPrompt) {
+  const text = userPrompt?.trim();
+  if (!text) return text;
+  if (text.length < 30) {
+    return `صورة فوتوغرافية واضحة ومفصلة لـ ${text}، مع أشجار غابة كثيفة، ضوء شمس طبيعي، ألوان خضراء وزرقاء، جو هادئ ومنظور واسع.`;
+  }
+  return text;
+}
 
 app.post('/api/safefriend/generate-image', async (req, res) => {
   const timestamp = new Date().toISOString();
@@ -285,13 +294,15 @@ app.post('/api/safefriend/generate-image', async (req, res) => {
     }
 
     const timeoutMs = 20000;
+    const finalPrompt = buildImagePrompt(prompt);
 
     console.log(`[${timestamp}] Calling OpenAI images.generate with model=${IMAGE_MODEL}, size=${IMAGE_SIZE}`);
+    console.log(`[${timestamp}] finalPrompt="${finalPrompt.substring(0, 100).replace(/\s+/g, ' ')}..."`);
 
     // Use Promise.race for timeout instead of AbortController (not supported by OpenAI images API)
     const imagePromise = openai.images.generate({
       model: IMAGE_MODEL,
-      prompt,
+      prompt: finalPrompt,
       size: IMAGE_SIZE
     });
 
@@ -300,8 +311,6 @@ app.post('/api/safefriend/generate-image', async (req, res) => {
     });
 
     const result = await Promise.race([imagePromise, timeoutPromise]);
-
-    console.log(`[${timestamp}] OpenAI response received: ${result?.data?.length || 0} images`);
 
     console.log(`[${timestamp}] OpenAI response received: ${result?.data?.length || 0} images`);
 
