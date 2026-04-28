@@ -284,19 +284,24 @@ app.post('/api/safefriend/generate-image', async (req, res) => {
       return res.status(400).json({ success: false, error: 'prompt مطلوب' });
     }
 
-    const controller = new AbortController();
     const timeoutMs = 20000;
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     console.log(`[${timestamp}] Calling OpenAI images.generate with model=${IMAGE_MODEL}, size=${IMAGE_SIZE}`);
 
-    const result = await openai.images.generate({
+    // Use Promise.race for timeout instead of AbortController (not supported by OpenAI images API)
+    const imagePromise = openai.images.generate({
       model: IMAGE_MODEL,
       prompt,
-      size: IMAGE_SIZE,
-      signal: controller.signal
+      size: IMAGE_SIZE
     });
-    clearTimeout(timeout);
+
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Request timeout')), timeoutMs);
+    });
+
+    const result = await Promise.race([imagePromise, timeoutPromise]);
+
+    console.log(`[${timestamp}] OpenAI response received: ${result?.data?.length || 0} images`);
 
     console.log(`[${timestamp}] OpenAI response received: ${result?.data?.length || 0} images`);
 
@@ -317,7 +322,7 @@ app.post('/api/safefriend/generate-image', async (req, res) => {
       type: error?.type,
       stack: error?.stack?.substring(0, 500)
     });
-    if (error?.name === 'AbortError') {
+    if (error?.message === 'Request timeout') {
       return res.status(504).json({ success: false, error: 'انتهى وقت إنشاء الصورة. حاول مرة أخرى.' });
     }
     return res.status(500).json({ success: false, error: error?.message || 'خطأ داخلي' });
