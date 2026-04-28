@@ -227,6 +227,69 @@ app.get('/api/sources', (req, res) => {
   });
 });
 
+// SafeFriend API
+app.get('/api/safefriend/status', (req, res) => {
+  return res.json({
+    success: true,
+    remaining: 3,
+    message: 'خدمة SafeFriend جاهزة'
+  });
+});
+
+app.post('/api/safefriend/chat', async (req, res) => {
+  try {
+    if (!openai) return res.status(500).json({ success: false, error: 'OpenAI not configured' });
+    const { message, history } = req.body;
+    if (!message) return res.status(400).json({ success: false, error: 'message مطلوب' });
+
+    const messages = [
+      {
+        role: 'system',
+        content: 'أنت صديق آمن ومساعد داعم للطلاب. استجب بطريقة مهذبة وواضحة وباللغة العربية الفصحى.'
+      },
+      ...(Array.isArray(history) ? history : []),
+      { role: 'user', content: message }
+    ];
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages,
+      temperature: 0.7,
+      max_tokens: 350
+    });
+
+    const reply = completion.choices?.[0]?.message?.content?.trim() || 'عذراً، حدث خطأ. حاول مرة أخرى.';
+    return res.json({ success: true, reply });
+  } catch (error) {
+    console.error('SafeFriend chat error:', error);
+    return res.status(500).json({ success: false, error: error?.message || 'خطأ داخلي' });
+  }
+});
+
+app.post('/api/safefriend/generate-image', async (req, res) => {
+  try {
+    if (!openai) return res.status(500).json({ success: false, error: 'OpenAI not configured' });
+    const { prompt } = req.body;
+    if (!prompt) return res.status(400).json({ success: false, error: 'prompt مطلوب' });
+
+    const result = await openai.images.generate({
+      model: 'gpt-image-1',
+      prompt,
+      size: '1024x1024'
+    });
+
+    const imageUrl = result?.data?.[0]?.url || null;
+    if (!imageUrl) {
+      return res.status(500).json({ success: false, error: 'فشل إنشاء الصورة' });
+    }
+
+    return res.json({ success: true, imageUrl, remaining: 2 });
+  } catch (error) {
+    console.error('SafeFriend image error:', error);
+    return res.status(500).json({ success: false, error: error?.message || 'خطأ داخلي' });
+  }
+});
+
 // ══════════════════════════════════════════════════════════════════
 // ██  SIGN LANGUAGE PIPELINE v4.0  ████████████████████████████████
 // ══════════════════════════════════════════════════════════════════
