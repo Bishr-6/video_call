@@ -4,6 +4,7 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import { v4 as uuidv4 } from 'uuid';
 import OpenAI from 'openai';
+import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import ytdl from '@distube/ytdl-core';
 import fs from 'fs';
@@ -14,6 +15,7 @@ import { finished } from 'stream/promises';
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', true);
 
 // Prevent silent crashes on Railway and show root cause
 process.on('unhandledRejection', (reason) => {
@@ -30,6 +32,76 @@ if (process.env.OPENAI_API_KEY) {
   console.log("✅ OpenAI Initialized");
 } else {
   console.warn("⚠️ Warning: OPENAI_API_KEY is missing.");
+}
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY;
+let supabase = null;
+if (SUPABASE_URL && SUPABASE_KEY) {
+  supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+  console.log("✅ Supabase Initialized");
+} else {
+  console.warn("⚠️ Warning: SUPABASE_URL and SUPABASE_KEY are not both configured. Image rate limit will not be enforced.");
+}
+
+const IMAGE_DAILY_LIMIT = parseInt(process.env.IMAGE_DAILY_LIMIT || '3', 10);
+
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'] || req.headers['X-Forwarded-For'];
+  if (forwarded) return forwarded.toString().split(',')[0].trim();
+  return req.ip || req.socket?.remoteAddress || null;
+}
+
+async function trackImageUsage(ip) {
+  if (!ip) return { allowed: true, count: 0, limit: IMAGE_DAILY_LIMIT };
+  if (!supabase) return { allowed: true, count: 0, limit: IMAGE_DAILY_LIMIT };
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const { data: existing, error: selectError } = await supabase
+    .from('user_image_usage')
+    .select('id, count')
+    .eq('ip_address', ip)
+    .eq('usage_date', today)
+    .maybeSingle();
+
+  if (selectError) {
+    console.error('Supabase select error:', selectError);
+    return { allowed: true, count: 0, limit: IMAGE_DAILY_LIMIT };
+  }
+
+  if (existing) {
+    if (existing.count >= IMAGE_DAILY_LIMIT) {
+      return { allowed: false, count: existing.count, limit: IMAGE_DAILY_LIMIT };
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from('user_image_usage')
+      .update({ count: existing.count + 1 })
+      .eq('id', existing.id)
+      .select('count')
+      .single();
+
+    if (updateError) {
+      console.error('Supabase update error:', updateError);
+      return { allowed: true, count: existing.count, limit: IMAGE_DAILY_LIMIT };
+    }
+
+    return { allowed: true, count: updated.count, limit: IMAGE_DAILY_LIMIT };
+  }
+
+  const { data: inserted, error: insertError } = await supabase
+    .from('user_image_usage')
+    .insert({ ip_address: ip, usage_date: today, count: 1 })
+    .select('count')
+    .single();
+
+  if (insertError) {
+    console.error('Supabase insert error:', insertError);
+    return { allowed: true, count: 0, limit: IMAGE_DAILY_LIMIT };
+  }
+
+  return { allowed: true, count: inserted.count, limit: IMAGE_DAILY_LIMIT };
 }
 
 // ✅ CORS Configuration for Production
@@ -267,7 +339,7 @@ app.post('/api/safefriend/chat', async (req, res) => {
 });
 
 const IMAGE_MODEL = process.env.IMAGE_MODEL || 'gpt-image-1';
-const IMAGE_SIZE = process.env.IMAGE_SIZE || '512x512';
+const IMAGE_SIZE = process.env.IMAGE_SIZE || '1024x1024';
 
 function buildImagePrompt(userPrompt) {
   const text = userPrompt?.trim();
@@ -291,6 +363,18 @@ app.post('/api/safefriend/generate-image', async (req, res) => {
     if (!prompt) {
       console.error(`[${timestamp}] SafeFriend image error: prompt missing`);
       return res.status(400).json({ success: false, error: 'prompt مطلوب' });
+    }
+
+    const clientIp = getClientIp(req);
+    const usage = await trackImageUsage(clientIp);
+    if (!usage.allowed) {
+      console.warn(`[${timestamp}] Image limit reached for IP=${clientIp}: ${usage.count}/${usage.limit}`);
+      return res.status(429).json({
+        success: false,
+        error: `لقد وصلت الحد اليومي (${usage.limit}) من طلبات إنشاء الصور. حاول غداً أو تواصل مع الدعم.`, 
+        count: usage.count,
+        limit: usage.limit
+      });
     }
 
     const timeoutMs = 20000;
