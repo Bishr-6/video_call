@@ -114,9 +114,32 @@ export default function VideoCallPage() {
 
   const connectSocket = useCallback(() => {
     const url = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000'
-    const socket = io(url)
-    socket.on('connect', () => socket.emit('user:register', { isDeaf }))
-    
+    const socket = io(url, {
+      transports: ['websocket', 'polling'],
+      path: '/socket.io',
+      reconnectionAttempts: 5,
+      timeout: 20000,
+    })
+
+    socket.on('connect', () => {
+      socket.emit('user:register', { isDeaf })
+    })
+
+    socket.on('connect_error', (error) => {
+      console.error('Socket connect_error:', error)
+      showToast('فشل الاتصال بخدمة الفيديو. حاول إعادة التحميل.', 'error')
+    })
+
+    socket.on('connect_timeout', () => {
+      console.error('Socket connect_timeout')
+      showToast('انتهى وقت الاتصال بخدمة الفيديو.', 'error')
+    })
+
+    socket.on('reconnect_failed', () => {
+      console.error('Socket reconnect_failed')
+      showToast('تعذر إعادة الاتصال بخدمة الفيديو.', 'error')
+    })
+
     socket.on('queue:waiting', () => setStatus('searching'))
     
     socket.on('match:found', (data) => {

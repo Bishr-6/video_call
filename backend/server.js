@@ -675,8 +675,15 @@ app.post('/api/sign-translate', async (req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*",
-    methods: ["GET", "POST"],
+    origin: [
+      'https://www.ishara.tech',
+      'https://ishara.tech',
+      'https://video-call-one-kappa.vercel.app',
+      'https://videocall-production-2b33.up.railway.app',
+      'http://localhost:3000',
+      'http://localhost:5173'
+    ],
+    methods: ['GET', 'POST'],
     credentials: true
   }
 });
