@@ -266,26 +266,41 @@ app.post('/api/safefriend/chat', async (req, res) => {
   }
 });
 
+const IMAGE_MODEL = process.env.IMAGE_MODEL || 'gpt-image-1';
+const IMAGE_SIZE = process.env.IMAGE_SIZE || '512x512';
+
 app.post('/api/safefriend/generate-image', async (req, res) => {
   try {
     if (!openai) return res.status(500).json({ success: false, error: 'OpenAI not configured' });
     const { prompt } = req.body;
     if (!prompt) return res.status(400).json({ success: false, error: 'prompt مطلوب' });
 
+    const controller = new AbortController();
+    const timeoutMs = 20000;
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
     const result = await openai.images.generate({
-      model: 'gpt-image-1',
+      model: IMAGE_MODEL,
       prompt,
-      size: '1024x1024'
+      n: 1,
+      size: IMAGE_SIZE,
+      response_format: 'url',
+      signal: controller.signal
     });
+    clearTimeout(timeout);
 
     const imageUrl = result?.data?.[0]?.url || null;
     if (!imageUrl) {
+      console.error('SafeFriend image error: invalid response', result);
       return res.status(500).json({ success: false, error: 'فشل إنشاء الصورة' });
     }
 
     return res.json({ success: true, imageUrl, remaining: 2 });
   } catch (error) {
     console.error('SafeFriend image error:', error);
+    if (error?.name === 'AbortError') {
+      return res.status(504).json({ success: false, error: 'انتهى وقت إنشاء الصورة. حاول مرة أخرى.' });
+    }
     return res.status(500).json({ success: false, error: error?.message || 'خطأ داخلي' });
   }
 });
