@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Analytics } from '@vercel/analytics/react'
 import LandingPage from './components/LandingPage'
 import TranslatorPage from './components/TranslatorPage'
 import VideoCallPage from './components/VideoCallPage'
@@ -35,6 +36,7 @@ function App() {
 
   return (
     <div dir="rtl" className={theme === 'light' ? 'light-theme' : 'dark-theme'}>
+      <Analytics />
       <div className="bg-animated" />
 
       {/* Navigation */}
